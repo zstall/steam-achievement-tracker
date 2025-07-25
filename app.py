@@ -1081,8 +1081,8 @@ def admin_users():
                 'email': user.email,
                 'created_at': user.created_at.strftime('%Y-%m-%d %H:%M:%S'),
                 'has_steam_api_key': bool(user.steam_api_key_encrypted),
-                'games_count': len(user.games),
-                'custom_achievements_count': len(user.custom_achievements)
+                'games_count': user.user_games.count(),
+                'custom_achievements_count': user.custom_achievements.count()
             }
             for user in users
         ],
