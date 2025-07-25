@@ -34,7 +34,7 @@
             <div class="card-header d-flex justify-content-between align-items-center">
                 <div class="d-flex align-items-center">
                     {% if achievement.image_filename %}
-                        <img src="{{ url_for('static', filename='achievement_images/' + achievement.image_filename) }}" 
+                        <img src="{{ get_achievement_image_url(achievement.image_filename) }}" 
                              class="achievement-card-image me-3" 
                              alt="{{ achievement.name }}">
                     {% endif %}

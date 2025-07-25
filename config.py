@@ -34,6 +34,14 @@ class Config:
     UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', 'static/achievement_images')
     ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.gif'}
     
+    # AWS S3 Configuration
+    AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
+    AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
+    AWS_S3_BUCKET = os.environ.get('AWS_S3_BUCKET', 'steam-achievement-tracker-images')
+    AWS_S3_REGION = os.environ.get('AWS_S3_REGION', 'us-east-1')
+    CLOUDFRONT_DOMAIN = os.environ.get('CLOUDFRONT_DOMAIN', 'dlo67ihc291lh.cloudfront.net')
+    USE_S3 = os.environ.get('USE_S3', 'False').lower() == 'true'
+    
     # Redis Configuration (for future caching)
     REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
     

@@ -20,6 +20,7 @@ from collections import defaultdict
 # Import our models and configuration
 from config import config
 from models import db, User, Game, UserGame, SteamAchievement, CustomAchievement, SharedAchievement, AchievementImage, ActivityFeed, get_or_create_game, log_activity, get_recent_activities
+from s3_manager import s3_manager
 
 def create_app():
     """Application factory pattern"""
@@ -31,6 +32,9 @@ def create_app():
     
     # Initialize database
     db.init_app(app)
+    
+    # Initialize S3 manager
+    s3_manager.init_app(app)
     
     # Create tables on first run (for Railway deployment)
     with app.app_context():
@@ -46,6 +50,14 @@ def create_app():
     return app
 
 app = create_app()
+
+# Template helper function for image URLs
+@app.template_global()
+def get_achievement_image_url(filename):
+    """Get the correct URL for an achievement image (S3 or local)"""
+    if not filename:
+        return None
+    return s3_manager.get_image_url(filename)
 
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -116,36 +128,20 @@ class CustomAchievementForm(FlaskForm):
 
 # Legacy CSV loading function removed - now using database queries
 
-def process_achievement_image(image_file, achievement_id):
-    """Process and save achievement image"""
+def process_achievement_image(image_file, user_id, achievement_id):
+    """Process and save achievement image using S3 or local storage"""
     if not image_file:
-        return None
+        return None, None
     
-    # Create filename
-    filename = secure_filename(f"{achievement_id}_{image_file.filename}")
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    # Use S3 manager to upload image
+    filename, url = s3_manager.upload_image(image_file, user_id, achievement_id)
     
-    # Create directory if it doesn't exist
-    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-    
-    # Open and resize image
-    image = Image.open(image_file)
-    
-    # Resize to standard achievement size (128x128)
-    image = image.resize((128, 128), Image.Resampling.LANCZOS)
-    
-    # Convert to RGB if necessary (for PNG with transparency)
-    if image.mode in ('RGBA', 'LA', 'P'):
-        background = Image.new('RGB', image.size, (26, 32, 56))  # Steam dark blue
-        if image.mode == 'P':
-            image = image.convert('RGBA')
-        background.paste(image, mask=image.split()[-1] if 'A' in image.mode else None)
-        image = background
-    
-    # Save image
-    image.save(filepath, 'JPEG', quality=85, optimize=True)
-    
-    return filename
+    if filename:
+        print(f"✅ Achievement image processed: {filename}")
+        return filename, url
+    else:
+        print("❌ Failed to process achievement image")
+        return None, None
 
 # Legacy JSON functions removed - now using database operations
 
@@ -659,10 +655,11 @@ def create_achievement():
     if form.validate_on_submit():
         # Process image upload
         image_filename = None
+        image_url = None
         if form.achievement_image.data:
             # Create a unique filename
             achievement_id = f"custom_{current_user.id}_{int(time.time())}"
-            image_filename = process_achievement_image(form.achievement_image.data, achievement_id)
+            image_filename, image_url = process_achievement_image(form.achievement_image.data, current_user.id, achievement_id)
             
             # Store image metadata in database
             achievement_image = AchievementImage(
