@@ -677,24 +677,24 @@ def create_achievement():
                 db.session.add(achievement_image)
             else:
                 flash('Image upload failed. Achievement created without image.', 'warning')
-        
-        # Create condition_data JSON
-        condition_data = {
-            'games': form.games.data,
-            'playtime_target': form.playtime_target.data if form.condition_type.data == 'playtime_total' else '0'
-        }
-        
-        # Create custom achievement
-        custom_achievement = CustomAchievement(
-            user_id=current_user.id,
-            name=form.name.data,
-            description=form.description.data,
-            condition_type=form.condition_type.data,
-            condition_data=condition_data,
-            image_filename=image_filename,
-            created_at=datetime.utcnow()
-        )
-        
+            
+            # Create condition_data JSON
+            condition_data = {
+                'games': form.games.data,
+                'playtime_target': form.playtime_target.data if form.condition_type.data == 'playtime_total' else '0'
+            }
+            
+            # Create custom achievement
+            custom_achievement = CustomAchievement(
+                user_id=current_user.id,
+                name=form.name.data,
+                description=form.description.data,
+                condition_type=form.condition_type.data,
+                condition_data=condition_data,
+                image_filename=image_filename,
+                created_at=datetime.utcnow()
+            )
+            
             db.session.add(custom_achievement)
             
             # Log activity for creating custom achievement
