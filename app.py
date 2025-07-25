@@ -653,24 +653,30 @@ def create_achievement():
     form.games.choices = game_choices
     
     if form.validate_on_submit():
-        # Process image upload
-        image_filename = None
-        image_url = None
-        if form.achievement_image.data:
-            # Create a unique filename
-            achievement_id = f"custom_{current_user.id}_{int(time.time())}"
-            image_filename, image_url = process_achievement_image(form.achievement_image.data, current_user.id, achievement_id)
+        try:
+            # Process image upload
+            image_filename = None
+            image_url = None
+            if form.achievement_image.data:
+                print(f"🖼️  Processing image upload for user {current_user.id}")
+                # Create a unique filename
+                achievement_id = f"custom_{current_user.id}_{int(time.time())}"
+                image_filename, image_url = process_achievement_image(form.achievement_image.data, current_user.id, achievement_id)
+                print(f"📄 Image upload result: filename={image_filename}, url={image_url}")
             
-            # Store image metadata in database
-            achievement_image = AchievementImage(
-                filename=image_filename,
-                original_filename=form.achievement_image.data.filename,
-                file_size=0,  # Could calculate actual size
-                mime_type='image/jpeg',
-                uploaded_by=current_user.id,
-                uploaded_at=datetime.utcnow()
-            )
-            db.session.add(achievement_image)
+            # Only store image metadata if upload was successful
+            if image_filename:
+                achievement_image = AchievementImage(
+                    filename=image_filename,
+                    original_filename=form.achievement_image.data.filename,
+                    file_size=0,  # Could calculate actual size
+                    mime_type='image/jpeg',
+                    uploaded_by=current_user.id,
+                    uploaded_at=datetime.utcnow()
+                )
+                db.session.add(achievement_image)
+            else:
+                flash('Image upload failed. Achievement created without image.', 'warning')
         
         # Create condition_data JSON
         condition_data = {
@@ -689,25 +695,30 @@ def create_achievement():
             created_at=datetime.utcnow()
         )
         
-        db.session.add(custom_achievement)
-        
-        # Log activity for creating custom achievement
-        log_activity(
-            user_id=current_user.id,
-            activity_type='custom_achievement_created',
-            title=f'Created custom achievement "{form.name.data}"',
-            description=form.description.data,
-            custom_achievement_id=custom_achievement.id,
-            metadata={
-                'condition_type': form.condition_type.data,
-                'games_count': len(form.games.data)
-            }
-        )
-        
-        db.session.commit()
-        
-        flash(f'Custom achievement "{form.name.data}" created successfully!')
-        return redirect(url_for('custom_achievements'))
+            db.session.add(custom_achievement)
+            
+            # Log activity for creating custom achievement
+            log_activity(
+                user_id=current_user.id,
+                activity_type='custom_achievement_created',
+                title=f'Created custom achievement "{form.name.data}"',
+                description=form.description.data,
+                custom_achievement_id=custom_achievement.id,
+                metadata={
+                    'condition_type': form.condition_type.data,
+                    'games_count': len(form.games.data)
+                }
+            )
+            
+            db.session.commit()
+            
+            flash(f'Custom achievement "{form.name.data}" created successfully!')
+            return redirect(url_for('custom_achievements'))
+            
+        except Exception as e:
+            db.session.rollback()
+            print(f"❌ Error creating achievement: {e}")
+            flash(f'Error creating achievement: {str(e)}', 'error')
     
     return render_template('create_achievement.html', form=form, games=games)
 
