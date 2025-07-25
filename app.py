@@ -32,6 +32,17 @@ def create_app():
     # Initialize database
     db.init_app(app)
     
+    # Create tables on first run (for Railway deployment)
+    with app.app_context():
+        try:
+            # Check if tables exist by trying to query User table
+            db.session.execute(db.text('SELECT 1 FROM "user" LIMIT 1'))
+            print("✅ Database tables already exist")
+        except Exception as e:
+            print("🔧 Creating database tables...")
+            db.create_all()
+            print("✅ Database tables created successfully")
+    
     return app
 
 app = create_app()
