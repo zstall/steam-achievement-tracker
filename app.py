@@ -1065,5 +1065,29 @@ def api_trophy_feed():
         'count': len(activities)
     })
 
+@app.route('/admin/users')
+@login_required
+def admin_users():
+    """Admin route to view all users"""
+    if current_user.username != 'admin':  # Simple admin check
+        flash('Access denied!')
+        return redirect(url_for('index'))
+    
+    users = User.query.order_by(User.created_at.desc()).all()
+    return jsonify({
+        'users': [
+            {
+                'username': user.username,
+                'email': user.email,
+                'created_at': user.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                'has_steam_api_key': bool(user.encrypted_steam_api_key),
+                'games_count': len(user.games),
+                'custom_achievements_count': len(user.custom_achievements)
+            }
+            for user in users
+        ],
+        'total_users': len(users)
+    })
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
