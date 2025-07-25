@@ -96,8 +96,8 @@ class S3Manager:
                 s3_key,
                 ExtraArgs={
                     'ContentType': f'image/{image_format.lower()}',
-                    'CacheControl': 'max-age=31536000',  # 1 year cache
-                    'ACL': 'public-read'
+                    'CacheControl': 'max-age=31536000'  # 1 year cache
+                    # Removed 'ACL': 'public-read' - modern S3 buckets use bucket policies instead
                 }
             )
             
