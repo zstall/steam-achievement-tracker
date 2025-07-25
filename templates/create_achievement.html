@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block title %}Create Achievement - Steam Achievement Tracker{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Library</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('custom_achievements') }}">Custom Achievements</a></li>
+                <li class="breadcrumb-item active">Create New</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h2><i class="fas fa-plus-circle"></i> Create Custom Achievement</h2>
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data">
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="mb-3">
+                        {{ form.name.label(class="form-label") }}
+                        {{ form.name(class="form-control", placeholder="e.g. 'Dark Souls Master'") }}
+                        {% if form.name.errors %}
+                            <div class="text-danger">
+                                {% for error in form.name.errors %}
+                                    <small>{{ error }}</small><br>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.description.label(class="form-label") }}
+                        {{ form.description(class="form-control", rows="3", placeholder="e.g. 'Complete Dark Souls, Dark Souls 2, and Dark Souls 3 with 100% achievements to prove your mastery of the series'") }}
+                        {% if form.description.errors %}
+                            <div class="text-danger">
+                                {% for error in form.description.errors %}
+                                    <small>{{ error }}</small><br>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.condition_type.label(class="form-label") }}
+                        {{ form.condition_type(class="form-select", id="conditionType") }}
+                        {% if form.condition_type.errors %}
+                            <div class="text-danger">
+                                {% for error in form.condition_type.errors %}
+                                    <small>{{ error }}</small><br>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3" id="playtimeTarget" style="display: none;">
+                        {{ form.playtime_target.label(class="form-label") }}
+                        {{ form.playtime_target(class="form-control", placeholder="e.g. 100") }}
+                        <small class="form-text text-muted">Enter the total number of hours required across all selected games.</small>
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.achievement_image.label(class="form-label") }}
+                        {{ form.achievement_image(class="form-control") }}
+                        {% if form.achievement_image.errors %}
+                            <div class="text-danger">
+                                {% for error in form.achievement_image.errors %}
+                                    <small>{{ error }}</small><br>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        <small class="form-text text-muted">Upload an image for your achievement (JPG, PNG, or GIF). Will be resized to 128x128 pixels.</small>
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.games.label(class="form-label") }}
+                        {% if games %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i> Select the games that are required for this achievement. You can search and filter below.
+                        </div>
+                        {% else %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i> No games found in your library. Please <a href="{{ url_for('profile') }}">configure your Steam API credentials</a> and refresh your data first.
+                        </div>
+                        {% endif %}
+                        
+                        <input type="text" class="form-control mb-3" id="gameSearch" placeholder="Search games...">
+                        
+                        <div style="max-height: 300px; overflow-y: auto; border: 1px solid #417a9b; border-radius: 0.375rem; padding: 1rem;">
+                            {% for value, label in form.games.choices %}
+                                <div class="form-check game-option" data-game-name="{{ label|lower }}">
+                                    <input class="form-check-input" type="checkbox" name="games" value="{{ value }}" id="game_{{ value }}">
+                                    <label class="form-check-label" for="game_{{ value }}">
+                                        {{ label }}
+                                    </label>
+                                </div>
+                            {% endfor %}
+                        </div>
+                        
+                        {% if form.games.errors %}
+                            <div class="text-danger mt-2">
+                                {% for error in form.games.errors %}
+                                    <small>{{ error }}</small><br>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('custom_achievements') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-times"></i> Cancel
+                        </a>
+                        {{ form.submit(class="btn btn-success") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-lg-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-question-circle"></i> Achievement Types Explained</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-trophy"></i> Complete all games 100%</h6>
+                        <p class="small text-muted">Requires you to get 100% achievement completion in all selected games.</p>
+                        
+                        <h6><i class="fas fa-shopping-cart"></i> Own all selected games</h6>
+                        <p class="small text-muted">Simply requires owning all the selected games in your library.</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-clock"></i> Total playtime</h6>
+                        <p class="small text-muted">Requires playing a combined total of X hours across all selected games.</p>
+                        
+                        <h6><i class="fas fa-star"></i> Coming Soon</h6>
+                        <p class="small text-muted">More achievement types will be added in future updates!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Show/hide playtime target field based on condition type
+document.getElementById('conditionType').addEventListener('change', function() {
+    const playtimeDiv = document.getElementById('playtimeTarget');
+    if (this.value === 'playtime_total') {
+        playtimeDiv.style.display = 'block';
+    } else {
+        playtimeDiv.style.display = 'none';
+    }
+});
+
+// Game search functionality
+document.getElementById('gameSearch').addEventListener('keyup', function() {
+    const searchTerm = this.value.toLowerCase();
+    const gameOptions = document.querySelectorAll('.game-option');
+    
+    gameOptions.forEach(option => {
+        const gameName = option.getAttribute('data-game-name');
+        if (gameName.includes(searchTerm)) {
+            option.style.display = 'block';
+        } else {
+            option.style.display = 'none';
+        }
+    });
+});
+
+// Initialize playtime field visibility
+document.addEventListener('DOMContentLoaded', function() {
+    const conditionSelect = document.getElementById('conditionType');
+    const playtimeDiv = document.getElementById('playtimeTarget');
+    if (conditionSelect.value === 'playtime_total') {
+        playtimeDiv.style.display = 'block';
+    }
+});
+</script>
+{% endblock %}

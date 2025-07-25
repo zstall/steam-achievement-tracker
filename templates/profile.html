@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}Profile - Steam Achievement Tracker{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h2><i class="fas fa-user-cog"></i> Profile Settings</h2>
+            </div>
+            <div class="card-body">
+                {% with messages = get_flashed_messages() %}
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                <div class="alert alert-info">
+                    <h5><i class="fas fa-info-circle"></i> Steam API Setup Instructions</h5>
+                    <p>To use this application, you need to provide your Steam API credentials:</p>
+                    <ol>
+                        <li><strong>Steam API Key:</strong> Get yours at <a href="https://steamcommunity.com/dev/apikey" target="_blank" class="text-light">steamcommunity.com/dev/apikey</a></li>
+                        <li><strong>Steam ID:</strong> Find your 17-digit Steam ID at <a href="https://steamid.io" target="_blank" class="text-light">steamid.io</a></li>
+                    </ol>
+                    <p class="mb-0"><small><i class="fas fa-shield-alt"></i> Your credentials are stored securely and only used to fetch your Steam data.</small></p>
+                </div>
+
+                <form method="POST">
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="mb-3">
+                        {{ form.steam_api_key.label(class="form-label") }}
+                        {{ form.steam_api_key(class="form-control", placeholder="Enter your 32-character Steam API key") }}
+                        {% if form.steam_api_key.errors %}
+                            <div class="text-danger">
+                                {% for error in form.steam_api_key.errors %}
+                                    <small>{{ error }}</small><br>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        <small class="form-text text-muted">Your Steam API key (32 characters long)</small>
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.steam_id.label(class="form-label") }}
+                        {{ form.steam_id(class="form-control", placeholder="Enter your 17-digit Steam ID") }}
+                        {% if form.steam_id.errors %}
+                            <div class="text-danger">
+                                {% for error in form.steam_id.errors %}
+                                    <small>{{ error }}</small><br>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        <small class="form-text text-muted">Your Steam ID (17 digits, starts with 7656119...)</small>
+                    </div>
+
+                    <div class="d-grid">
+                        {{ form.submit(class="btn btn-primary") }}
+                    </div>
+                </form>
+
+                <hr>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5><i class="fas fa-user"></i> Account Info</h5>
+                        <p><strong>Username:</strong> {{ current_user.username }}</p>
+                        <p><strong>API Key Status:</strong> 
+                            {% if current_user.steam_api_key %}
+                                <span class="text-success"><i class="fas fa-check"></i> Configured</span>
+                            {% else %}
+                                <span class="text-warning"><i class="fas fa-exclamation-triangle"></i> Not set</span>
+                            {% endif %}
+                        </p>
+                        <p><strong>Steam ID Status:</strong> 
+                            {% if current_user.steam_id %}
+                                <span class="text-success"><i class="fas fa-check"></i> Configured</span>
+                            {% else %}
+                                <span class="text-warning"><i class="fas fa-exclamation-triangle"></i> Not set</span>
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <h5><i class="fas fa-cogs"></i> Actions</h5>
+                        <a href="{{ url_for('index') }}" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-home"></i> Back to Library
+                        </a>
+                        <a href="{{ url_for('logout') }}" class="btn btn-outline-danger btn-sm">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

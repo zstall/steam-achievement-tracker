@@ -1,0 +1,313 @@
+{% extends "base.html" %}
+
+{% block title %}Trophy Feed - Achievement Tracker{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <h1><i class="fas fa-trophy text-warning"></i> Community Trophy Feed</h1>
+        <p class="text-muted">See what the community is achieving!</p>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <label for="activityFilter" class="form-label">Filter by Activity Type</label>
+        <select class="form-select" id="activityFilter" onchange="filterFeed()">
+            {% for value, label in activity_types %}
+            <option value="{{ value }}" {% if value == current_filter %}selected{% endif %}>
+                {{ label }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col-md-6">
+        <label for="userFilter" class="form-label">Filter by User</label>
+        <select class="form-select" id="userFilter" onchange="filterFeed()">
+            <option value="all" {% if current_user_filter == 'all' or not current_user_filter %}selected{% endif %}>
+                👥 All Users
+            </option>
+            {% for user in recent_users %}
+            <option value="{{ user.username }}" {% if user.username == current_user_filter %}selected{% endif %}>
+                {{ user.username }}
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+</div>
+
+<!-- Activity Feed -->
+<div class="row" id="feedContainer">
+    {% if activities %}
+        {% for activity in activities %}
+        <div class="col-12 mb-3">
+            <div class="card activity-card">
+                <div class="card-body">
+                    <!-- Activity Header -->
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="activity-avatar me-3">
+                            <div class="rounded-circle bg-primary d-flex align-items-center justify-content-center" 
+                                 style="width: 40px; height: 40px;">
+                                <i class="fas fa-user text-white"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="mb-1">
+                                        <strong>{{ activity.user.username }}</strong>
+                                        <span class="badge bg-secondary ms-2">{{ activity.get_type_display() }}</span>
+                                    </h6>
+                                    <small class="text-muted">{{ activity.time_ago }}</small>
+                                </div>
+                                {% if activity.is_highlighted %}
+                                <span class="badge bg-warning text-dark">
+                                    <i class="fas fa-star"></i> Highlighted
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Activity Content -->
+                    <div class="activity-content">
+                        <h5 class="activity-title">{{ activity.get_icon() }} {{ activity.title }}</h5>
+                        {% if activity.description %}
+                        <p class="activity-description text-muted">{{ activity.description }}</p>
+                        {% endif %}
+
+                        <!-- Related Content -->
+                        <div class="activity-details mt-2">
+                            {% if activity.game %}
+                            <div class="d-inline-block me-3">
+                                <small class="text-info">
+                                    <i class="fas fa-gamepad"></i> {{ activity.game.name }}
+                                </small>
+                            </div>
+                            {% endif %}
+
+                            {% if activity.custom_achievement %}
+                            <div class="d-inline-block me-3">
+                                <small class="text-warning">
+                                    <i class="fas fa-trophy"></i> {{ activity.custom_achievement.name }}
+                                </small>
+                            </div>
+                            {% endif %}
+
+                            {% if activity.shared_achievement %}
+                            <div class="d-inline-block me-3">
+                                <small class="text-success">
+                                    <i class="fas fa-share"></i> {{ activity.shared_achievement.name }}
+                                </small>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Metadata Display -->
+                        {% if activity.activity_metadata %}
+                        <div class="activity-metadata mt-2">
+                            {% if activity.activity_metadata.get('games_count') %}
+                            <small class="text-muted">
+                                <i class="fas fa-list"></i> {{ activity.activity_metadata.games_count }} games involved
+                            </small>
+                            {% endif %}
+                            {% if activity.activity_metadata.get('condition_type') %}
+                            <small class="text-muted ms-3">
+                                <i class="fas fa-cog"></i> {{ activity.activity_metadata.condition_type.replace('_', ' ').title() }}
+                            </small>
+                            {% endif %}
+                            {% if activity.activity_metadata.get('original_creator') %}
+                            <small class="text-muted ms-3">
+                                <i class="fas fa-user-crown"></i> Created by @{{ activity.activity_metadata.original_creator }}
+                            </small>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Activity Actions -->
+                    <div class="activity-actions mt-3 pt-3 border-top">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="activity-stats">
+                                <small class="text-muted">
+                                    <i class="fas fa-clock"></i> {{ activity.created_at.strftime('%b %d, %Y at %I:%M %p') }}
+                                </small>
+                            </div>
+                            <div class="activity-buttons">
+                                {% if activity.activity_type == 'custom_achievement_shared' and activity.shared_achievement and activity.user.id != current_user.id %}
+                                <a href="{{ url_for('import_achievement_route', shared_id=activity.shared_achievement.id) }}" 
+                                   class="btn btn-sm btn-outline-success">
+                                    <i class="fas fa-download"></i> Try This Challenge
+                                </a>
+                                {% endif %}
+                                
+                                {% if activity.custom_achievement %}
+                                <a href="{{ url_for('custom_achievements') }}" 
+                                   class="btn btn-sm btn-outline-info">
+                                    <i class="fas fa-eye"></i> View Achievement
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="fas fa-trophy fa-3x text-muted mb-3"></i>
+                <h3>No Activities Yet</h3>
+                <p class="text-muted">The community feed is empty. Be the first to create or share an achievement!</p>
+                <a href="{{ url_for('create_achievement') }}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Create Achievement
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Load More Button -->
+{% if activities|length >= 20 %}
+<div class="text-center mt-4">
+    <button class="btn btn-outline-primary" onclick="loadMoreActivities()">
+        <i class="fas fa-chevron-down"></i> Load More Activities
+    </button>
+</div>
+{% endif %}
+
+<script>
+let currentPage = {{ page }};
+
+function filterFeed() {
+    const activityFilter = document.getElementById('activityFilter').value;
+    const userFilter = document.getElementById('userFilter').value;
+    
+    // Build URL with filters
+    const params = new URLSearchParams();
+    if (activityFilter !== 'all') {
+        params.append('filter', activityFilter);
+    }
+    if (userFilter !== 'all') {
+        params.append('user', userFilter);
+    }
+    
+    // Redirect with filters
+    window.location.href = '{{ url_for("trophy_feed") }}?' + params.toString();
+}
+
+function loadMoreActivities() {
+    const activityFilter = document.getElementById('activityFilter').value;
+    const userFilter = document.getElementById('userFilter').value;
+    
+    // Build API URL
+    const params = new URLSearchParams();
+    params.append('limit', (currentPage + 1) * 20);
+    if (activityFilter !== 'all') {
+        params.append('filter', activityFilter);
+    }
+    if (userFilter !== 'all') {
+        params.append('user', userFilter);
+    }
+    
+    fetch('/api/trophy-feed?' + params.toString())
+        .then(response => response.json())
+        .then(data => {
+            if (data.activities && data.activities.length > currentPage * 20) {
+                // Add new activities to the feed
+                const container = document.getElementById('feedContainer');
+                const newActivities = data.activities.slice(currentPage * 20);
+                
+                newActivities.forEach(activity => {
+                    const activityHtml = createActivityCard(activity);
+                    container.insertAdjacentHTML('beforeend', activityHtml);
+                });
+                
+                currentPage++;
+                
+                // Hide load more button if no more activities
+                if (data.activities.length < (currentPage * 20)) {
+                    document.querySelector('button[onclick="loadMoreActivities()"]').style.display = 'none';
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error loading more activities:', error);
+        });
+}
+
+function createActivityCard(activity) {
+    // This would create HTML for new activity cards
+    // For now, just reload the page for simplicity
+    location.reload();
+}
+
+// Auto-refresh feed every 30 seconds
+setInterval(() => {
+    if (document.visibilityState === 'visible') {
+        // Only refresh if user is viewing the page
+        location.reload();
+    }
+}, 30000);
+</script>
+
+<style>
+.activity-card {
+    border-left: 4px solid #66c0f4;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.activity-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.activity-avatar {
+    flex-shrink: 0;
+}
+
+.activity-title {
+    color: #c7d5e0;
+    margin-bottom: 0.5rem;
+}
+
+.activity-description {
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+.activity-details small {
+    display: inline-block;
+    padding: 2px 6px;
+    background: rgba(102, 192, 244, 0.1);
+    border-radius: 4px;
+    margin-bottom: 4px;
+}
+
+.activity-metadata small {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-right: 8px;
+}
+
+.badge {
+    font-size: 0.7rem;
+}
+
+@media (max-width: 768px) {
+    .activity-actions {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .activity-buttons {
+        margin-top: 0.5rem;
+    }
+}
+</style>
+{% endblock %}

@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+
+{% block title %}Steam Library - Achievement Tracker{% endblock %}
+
+{% block content %}
+<!-- Trophy Showcase -->
+{% if completed_achievements %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h3><i class="fas fa-trophy text-warning"></i> Trophy Showcase - Unlocked Custom Achievements</h3>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for achievement in completed_achievements[:6] %}
+                    <div class="col-md-2 col-sm-4 col-6 mb-3 text-center">
+                        <div class="trophy-item">
+                            {% if achievement.image_filename %}
+                                <img src="{{ url_for('static', filename='achievement_images/' + achievement.image_filename) }}" 
+                                     class="achievement-trophy-image mb-2" 
+                                     alt="{{ achievement.name }}"
+                                     title="{{ achievement.name }}: {{ achievement.description }}">
+                            {% else %}
+                                <div class="achievement-trophy-placeholder mb-2">
+                                    <i class="fas fa-trophy fa-3x text-warning"></i>
+                                </div>
+                            {% endif %}
+                            <h6 class="achievement-trophy-name">{{ achievement.name }}</h6>
+                            <small class="text-muted">Custom Achievement</small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% if completed_achievements|length > 6 %}
+                <div class="text-center">
+                    <a href="{{ url_for('custom_achievements') }}" class="btn btn-outline-warning btn-sm">
+                        <i class="fas fa-trophy"></i> View All {{ completed_achievements|length }} Unlocked Achievements
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="row mb-4">
+    <div class="col-12">
+        <h1><i class="fas fa-gamepad"></i> Your Steam Library</h1>
+        <p class="text-muted">{{ games|length }} games total
+        {% if completed_achievements %}
+            • {{ completed_achievements|length }} custom achievements unlocked
+        {% endif %}
+        </p>
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col-md-6">
+        <input type="text" class="form-control" id="searchInput" placeholder="Search games..." onkeyup="filterGames()">
+    </div>
+    <div class="col-md-3">
+        <select class="form-select" id="sortSelect" onchange="sortGames()">
+            <option value="name">Sort by Name</option>
+            <option value="playtime">Sort by Playtime</option>
+            <option value="progress">Sort by Progress</option>
+        </select>
+    </div>
+    <div class="col-md-3">
+        <select class="form-select" id="filterSelect" onchange="filterByProgress()">
+            <option value="all">All Games</option>
+            <option value="with-achievements">With Achievements</option>
+            <option value="completed">100% Complete</option>
+            <option value="in-progress">In Progress</option>
+        </select>
+    </div>
+</div>
+
+<div class="row" id="gamesContainer">
+    {% if games %}
+        {% for game in games %}
+        <div class="col-md-4 mb-4 game-item" data-name="{{ game.name|lower }}" data-progress="{{ game.progress }}" data-achievements="{{ game.total_achievements }}">
+        <div class="card game-card h-100">
+            <div class="card-body">
+                <h5 class="card-title">{{ game.name }}</h5>
+                <p class="card-text">
+                    <small class="text-muted">
+                        <i class="fas fa-clock"></i> {{ "%.1f"|format(game.playtime) }} hours
+                        {% if game.total_achievements > 0 %}
+                        <br><i class="fas fa-trophy"></i> {{ game.unlocked_achievements }}/{{ game.total_achievements }} achievements
+                        {% endif %}
+                    </small>
+                </p>
+                
+                {% if game.total_achievements > 0 %}
+                <div class="progress mb-2" style="height: 20px;">
+                    <div class="progress-bar" role="progressbar" style="width: {{ game.progress }}%;">
+                        {{ game.progress }}%
+                    </div>
+                </div>
+                <a href="/game/{{ game.appid }}" class="btn btn-primary btn-sm">
+                    <i class="fas fa-eye"></i> View Achievements
+                </a>
+                {% else %}
+                <p class="text-muted"><i class="fas fa-ban"></i> No achievements available</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+        {% endfor %}
+    {% else %}
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center">
+                <i class="fas fa-steam fa-3x text-muted mb-3"></i>
+                <h3>No Steam Data Found</h3>
+                <p class="text-muted">You haven't fetched your Steam library data yet.</p>
+                {% if current_user.steam_api_key_encrypted and current_user.steam_id %}
+                    <button class="btn btn-info" onclick="refreshData()">
+                        <i class="fas fa-refresh"></i> Fetch My Steam Library
+                    </button>
+                {% else %}
+                    <p class="text-warning">
+                        <i class="fas fa-exclamation-triangle"></i> 
+                        Please configure your Steam API credentials in your profile first.
+                    </p>
+                    <a href="{{ url_for('profile') }}" class="btn btn-warning">
+                        <i class="fas fa-user-cog"></i> Configure Steam API
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function filterGames() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const gameItems = document.querySelectorAll('.game-item');
+    
+    gameItems.forEach(item => {
+        const gameName = item.getAttribute('data-name');
+        if (gameName.includes(searchTerm)) {
+            item.style.display = '';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
+function sortGames() {
+    const sortBy = document.getElementById('sortSelect').value;
+    const container = document.getElementById('gamesContainer');
+    const items = Array.from(container.querySelectorAll('.game-item'));
+    
+    items.sort((a, b) => {
+        if (sortBy === 'name') {
+            return a.getAttribute('data-name').localeCompare(b.getAttribute('data-name'));
+        } else if (sortBy === 'progress') {
+            return parseFloat(b.getAttribute('data-progress')) - parseFloat(a.getAttribute('data-progress'));
+        } else if (sortBy === 'playtime') {
+            const aTime = parseFloat(a.querySelector('.card-text').textContent.match(/[\d.]+/)[0]);
+            const bTime = parseFloat(b.querySelector('.card-text').textContent.match(/[\d.]+/)[0]);
+            return bTime - aTime;
+        }
+    });
+    
+    items.forEach(item => container.appendChild(item));
+}
+
+function filterByProgress() {
+    const filter = document.getElementById('filterSelect').value;
+    const gameItems = document.querySelectorAll('.game-item');
+    
+    gameItems.forEach(item => {
+        const progress = parseFloat(item.getAttribute('data-progress'));
+        const achievements = parseInt(item.getAttribute('data-achievements'));
+        
+        let show = true;
+        
+        if (filter === 'with-achievements' && achievements === 0) {
+            show = false;
+        } else if (filter === 'completed' && progress < 100) {
+            show = false;
+        } else if (filter === 'in-progress' && (progress === 0 || progress === 100 || achievements === 0)) {
+            show = false;
+        }
+        
+        item.style.display = show ? '' : 'none';
+    });
+}
+</script>
+{% endblock %}

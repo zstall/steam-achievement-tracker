@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% block title %}{{ game.name }} - Achievement Tracker{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="/">Library</a></li>
+                <li class="breadcrumb-item active">{{ game.name }}</li>
+            </ol>
+        </nav>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h1><i class="fas fa-gamepad"></i> {{ game.name }}</h1>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong><i class="fas fa-clock"></i> Playtime:</strong> {{ "%.1f"|format(game.playtime) }} hours</p>
+                        <p><strong><i class="fas fa-trophy"></i> Achievements:</strong> {{ game.unlocked_achievements }}/{{ game.total_achievements }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="progress mb-2" style="height: 30px;">
+                            <div class="progress-bar" role="progressbar" style="width: {{ game.progress }}%;">
+                                {{ game.progress }}% Complete
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if game.achievements %}
+<div class="row mb-3">
+    <div class="col-md-6">
+        <input type="text" class="form-control" id="searchAchievements" placeholder="Search achievements..." onkeyup="filterAchievements()">
+    </div>
+    <div class="col-md-3">
+        <select class="form-select" id="achievementFilter" onchange="filterAchievementsByStatus()">
+            <option value="all">All Achievements</option>
+            <option value="unlocked">Unlocked Only</option>
+            <option value="locked">Locked Only</option>
+        </select>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h3><i class="fas fa-list"></i> Achievement List</h3>
+            </div>
+            <div class="card-body">
+                <div class="list-group" id="achievementsList">
+                    {% for achievement in game.achievements %}
+                    <div class="list-group-item achievement-item {% if achievement.achieved %}achievement-unlocked{% else %}achievement-locked{% endif %}" 
+                         data-name="{{ achievement.display_name|lower }}" 
+                         data-achieved="{{ achievement.achieved }}">
+                        <div class="d-flex w-100 justify-content-between">
+                            <div class="mb-1">
+                                <h6 class="mb-1">
+                                    {% if achievement.achieved %}
+                                        <i class="fas fa-trophy text-warning"></i>
+                                    {% else %}
+                                        <i class="fas fa-lock text-muted"></i>
+                                    {% endif %}
+                                    {{ achievement.display_name or achievement.api_name }}
+                                </h6>
+                                {% if achievement.description %}
+                                <p class="mb-1 text-muted">{{ achievement.description }}</p>
+                                {% endif %}
+                            </div>
+                            {% if achievement.achieved and achievement.unlock_time %}
+                            <small class="text-muted">
+                                <i class="fas fa-calendar"></i> {{ achievement.unlock_time[:10] }}
+                            </small>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function filterAchievements() {
+    const searchTerm = document.getElementById('searchAchievements').value.toLowerCase();
+    const achievements = document.querySelectorAll('.achievement-item');
+    
+    achievements.forEach(item => {
+        const achievementName = item.getAttribute('data-name');
+        const description = item.querySelector('p') ? item.querySelector('p').textContent.toLowerCase() : '';
+        
+        if (achievementName.includes(searchTerm) || description.includes(searchTerm)) {
+            item.style.display = '';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
+function filterAchievementsByStatus() {
+    const filter = document.getElementById('achievementFilter').value;
+    const achievements = document.querySelectorAll('.achievement-item');
+    
+    achievements.forEach(item => {
+        const achieved = item.getAttribute('data-achieved') === '1';
+        
+        let show = true;
+        if (filter === 'unlocked' && !achieved) {
+            show = false;
+        } else if (filter === 'locked' && achieved) {
+            show = false;
+        }
+        
+        item.style.display = show ? '' : 'none';
+    });
+}
+</script>
+
+{% else %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center">
+                <i class="fas fa-ban fa-3x text-muted mb-3"></i>
+                <h3>No Achievements Available</h3>
+                <p class="text-muted">This game doesn't have Steam achievements or the data hasn't been loaded yet.</p>
+                <a href="/" class="btn btn-primary">Back to Library</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

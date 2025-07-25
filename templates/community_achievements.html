@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+
+{% block title %}Community Achievements - Steam Achievement Tracker{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h1><i class="fas fa-users"></i> Community Achievements</h1>
+            <a href="{{ url_for('custom_achievements') }}" class="btn btn-primary">
+                <i class="fas fa-arrow-left"></i> Back to My Achievements
+            </a>
+        </div>
+        <p class="text-muted">Discover and try achievements created by other users</p>
+    </div>
+</div>
+
+{% with messages = get_flashed_messages() %}
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+<div class="row mb-3">
+    <div class="col-md-6">
+        <input type="text" class="form-control" id="achievementSearch" placeholder="Search community achievements..." onkeyup="filterAchievements()">
+    </div>
+    <div class="col-md-3">
+        <select class="form-select" id="sortSelect" onchange="sortAchievements()">
+            <option value="popularity">Sort by Popularity</option>
+            <option value="compatibility">Sort by Compatibility</option>
+            <option value="name">Sort by Name</option>
+            <option value="creator">Sort by Creator</option>
+        </select>
+    </div>
+    <div class="col-md-3">
+        <select class="form-select" id="filterSelect" onchange="filterByCompatibility()">
+            <option value="all">All Achievements</option>
+            <option value="compatible">100% Compatible</option>
+            <option value="mostly">75%+ Compatible</option>
+            <option value="partial">Some Games Owned</option>
+        </select>
+    </div>
+</div>
+
+{% if achievements %}
+<div class="row" id="achievementsContainer">
+    {% for achievement in achievements %}
+    <div class="col-md-6 mb-4 achievement-item" 
+         data-name="{{ achievement.name|lower }}" 
+         data-creator="{{ achievement.creator|lower }}"
+         data-popularity="{{ achievement.tries + achievement.completions }}"
+         data-compatibility="{{ achievement.compatibility }}">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center">
+                    {% if achievement.image_filename %}
+                        <img src="{{ url_for('static', filename='achievement_images/' + achievement.image_filename) }}" 
+                             class="achievement-card-image me-3" 
+                             alt="{{ achievement.name }}">
+                    {% endif %}
+                    <div>
+                        <h5 class="mb-0">
+                            <i class="fas fa-star text-warning"></i> {{ achievement.name }}
+                        </h5>
+                        <small class="text-muted">by {{ achievement.creator }}</small>
+                    </div>
+                </div>
+                {% if achievement.already_imported %}
+                    <button class="btn btn-secondary btn-sm" disabled>
+                        <i class="fas fa-check"></i> Already Imported
+                    </button>
+                {% else %}
+                    <a href="{{ url_for('import_achievement_route', shared_id=achievement.shared_id) }}" 
+                       class="btn btn-success btn-sm"
+                       onclick="return confirm('Import this achievement to your collection?')">
+                        <i class="fas fa-download"></i> Try This
+                    </a>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                <p class="card-text">{{ achievement.description }}</p>
+                
+                <div class="mb-3">
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="text-center">
+                                <div class="h4 mb-0 text-info">{{ achievement.tries }}</div>
+                                <small class="text-muted">Tries</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center">
+                                <div class="h4 mb-0 text-success">{{ achievement.completions }}</div>
+                                <small class="text-muted">Completions</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between mb-1">
+                        <small class="text-muted">Compatibility</small>
+                        <small class="{% if achievement.compatibility >= 100 %}text-success{% elif achievement.compatibility >= 75 %}text-warning{% else %}text-danger{% endif %}">
+                            {{ "%.0f"|format(achievement.compatibility) }}%
+                        </small>
+                    </div>
+                    <div class="progress" style="height: 8px;">
+                        <div class="progress-bar {% if achievement.compatibility >= 100 %}bg-success{% elif achievement.compatibility >= 75 %}bg-warning{% else %}bg-danger{% endif %}" 
+                             role="progressbar" 
+                             style="width: {{ achievement.compatibility }}%;">
+                        </div>
+                    </div>
+                    <small class="text-muted">You own {{ "%.0f"|format(achievement.compatibility) }}% of required games</small>
+                </div>
+
+                <div class="mb-2">
+                    <strong>Condition:</strong>
+                    {% if achievement.condition_type == 'all_games_100' %}
+                        Complete all games 100%
+                    {% elif achievement.condition_type == 'all_games_owned' %}
+                        Own all selected games
+                    {% elif achievement.condition_type == 'playtime_total' %}
+                        Play {{ achievement.playtime_target }} total hours
+                    {% endif %}
+                </div>
+
+                <div class="mb-2">
+                    <strong>Required Games:</strong>
+                    <div class="mt-1" style="max-height: 100px; overflow-y: auto;">
+                        {% for game in achievement.games %}
+                            <span class="badge bg-secondary me-1 mb-1">{{ game }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                {% if achievement.compatibility >= 100 %}
+                    <div class="alert alert-success mb-0">
+                        <i class="fas fa-check-circle"></i> <strong>Fully Compatible!</strong> You own all required games.
+                    </div>
+                {% elif achievement.compatibility >= 75 %}
+                    <div class="alert alert-warning mb-0">
+                        <i class="fas fa-exclamation-triangle"></i> <strong>Mostly Compatible</strong> - You own most required games.
+                    </div>
+                {% elif achievement.compatibility > 0 %}
+                    <div class="alert alert-info mb-0">
+                        <i class="fas fa-info-circle"></i> <strong>Partially Compatible</strong> - You own some required games.
+                    </div>
+                {% else %}
+                    <div class="alert alert-secondary mb-0">
+                        <i class="fas fa-times-circle"></i> <strong>Not Compatible</strong> - You don't own any required games.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center">
+                <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                <h3>No Community Achievements Yet</h3>
+                <p class="text-muted">Be the first to share an achievement with the community!</p>
+                <a href="{{ url_for('custom_achievements') }}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Create and Share an Achievement
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-info-circle"></i> How Community Achievements Work</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-share text-success"></i> Sharing</h6>
+                        <p class="small text-muted">Share your achievements with the community so others can try them.</p>
+                        
+                        <h6><i class="fas fa-download text-info"></i> Importing</h6>
+                        <p class="small text-muted">Import achievements created by others to your personal collection.</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-chart-line text-warning"></i> Compatibility</h6>
+                        <p class="small text-muted">Shows what percentage of required games you own.</p>
+                        
+                        <h6><i class="fas fa-trophy text-warning"></i> Attribution</h6>
+                        <p class="small text-muted">Original creators are always credited when you import their achievements.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function filterAchievements() {
+    const searchTerm = document.getElementById('achievementSearch').value.toLowerCase();
+    const achievements = document.querySelectorAll('.achievement-item');
+    
+    achievements.forEach(item => {
+        const name = item.getAttribute('data-name');
+        const creator = item.getAttribute('data-creator');
+        const description = item.querySelector('.card-text').textContent.toLowerCase();
+        
+        if (name.includes(searchTerm) || creator.includes(searchTerm) || description.includes(searchTerm)) {
+            item.style.display = '';
+        } else {
+            item.style.display = 'none';
+        }
+    });
+}
+
+function sortAchievements() {
+    const sortBy = document.getElementById('sortSelect').value;
+    const container = document.getElementById('achievementsContainer');
+    const items = Array.from(container.querySelectorAll('.achievement-item'));
+    
+    items.sort((a, b) => {
+        if (sortBy === 'popularity') {
+            return parseInt(b.getAttribute('data-popularity')) - parseInt(a.getAttribute('data-popularity'));
+        } else if (sortBy === 'compatibility') {
+            return parseFloat(b.getAttribute('data-compatibility')) - parseFloat(a.getAttribute('data-compatibility'));
+        } else if (sortBy === 'name') {
+            return a.getAttribute('data-name').localeCompare(b.getAttribute('data-name'));
+        } else if (sortBy === 'creator') {
+            return a.getAttribute('data-creator').localeCompare(b.getAttribute('data-creator'));
+        }
+    });
+    
+    items.forEach(item => container.appendChild(item));
+}
+
+function filterByCompatibility() {
+    const filter = document.getElementById('filterSelect').value;
+    const achievements = document.querySelectorAll('.achievement-item');
+    
+    achievements.forEach(item => {
+        const compatibility = parseFloat(item.getAttribute('data-compatibility'));
+        
+        let show = true;
+        if (filter === 'compatible' && compatibility < 100) {
+            show = false;
+        } else if (filter === 'mostly' && compatibility < 75) {
+            show = false;
+        } else if (filter === 'partial' && compatibility === 0) {
+            show = false;
+        }
+        
+        item.style.display = show ? '' : 'none';
+    });
+}
+</script>
+{% endblock %}

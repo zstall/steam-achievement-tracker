@@ -1,0 +1,10 @@
+{
+  "zstall": {
+    "password_hash": "pbkdf2:sha256:600000$KUzX1jIzg6flpqKw$142494c5493f60d463eb0d909e8e0a2bdee1344eb8b00dca77a5817d0cd7f0a2",
+    "steam_api_key": "549094D7625ABA943DA0EC5CA4BA5D88",
+    "steam_id": "76561198084603204"
+  },
+  "admin": {
+    "password_hash": "pbkdf2:sha256:600000$CoJ3RkXDeIubRj11$68b2549127ca2b7726a2f13b09913d6c0a108dc71f447fa3535825ddf7120ad7"
+  }
+}
