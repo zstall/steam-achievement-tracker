@@ -564,34 +564,4 @@ class PasswordResetToken(db.Model):
         self.is_used = True
         self.used_at = datetime.utcnow()
 
-class EmailChangeToken(db.Model):
-    """Model for email change tokens"""
-    __tablename__ = 'email_change_tokens'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    token = db.Column(db.String(255), unique=True, nullable=False)
-    old_email = db.Column(db.String(255), nullable=True)
-    new_email = db.Column(db.String(255), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    expires_at = db.Column(db.DateTime, nullable=False)
-    is_used = db.Column(db.Boolean, default=False)
-    used_at = db.Column(db.DateTime, nullable=True)
-    
-    # Relationship
-    user = db.relationship('User', backref=db.backref('email_change_tokens', lazy=True))
-    
-    @property
-    def is_expired(self):
-        """Check if token has expired"""
-        return datetime.utcnow() > self.expires_at
-    
-    @property
-    def is_valid(self):
-        """Check if token is valid (not used and not expired)"""
-        return not self.is_used and not self.is_expired
-    
-    def mark_as_used(self):
-        """Mark token as used"""
-        self.is_used = True
-        self.used_at = datetime.utcnow()
+
