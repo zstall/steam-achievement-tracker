@@ -1257,5 +1257,65 @@ def admin_users():
         'total_users': len(users)
     })
 
+@app.route('/admin/create-email-tables')
+@login_required
+def admin_create_email_tables():
+    """Admin route to create email tables manually"""
+    if current_user.username != 'admin':
+        flash('Access denied!')
+        return redirect(url_for('index'))
+    
+    try:
+        # Drop tables if they exist (to avoid conflicts)
+        db.session.execute(db.text('DROP TABLE IF EXISTS email_verification_tokens CASCADE'))
+        db.session.execute(db.text('DROP TABLE IF EXISTS password_reset_tokens CASCADE'))
+        
+        # Create tables with raw SQL to avoid sequence conflicts
+        email_verification_sql = """
+        CREATE TABLE email_verification_tokens (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            token VARCHAR(255) UNIQUE NOT NULL,
+            email VARCHAR(255) NOT NULL,
+            created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
+            expires_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+            is_used BOOLEAN NOT NULL DEFAULT FALSE,
+            used_at TIMESTAMP WITHOUT TIME ZONE
+        );
+        CREATE INDEX idx_email_verification_token ON email_verification_tokens(token);
+        """
+        
+        password_reset_sql = """
+        CREATE TABLE password_reset_tokens (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            token VARCHAR(255) UNIQUE NOT NULL,
+            email VARCHAR(255) NOT NULL,
+            created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
+            expires_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+            is_used BOOLEAN NOT NULL DEFAULT FALSE,
+            used_at TIMESTAMP WITHOUT TIME ZONE,
+            request_ip VARCHAR(45)
+        );
+        CREATE INDEX idx_password_reset_token ON password_reset_tokens(token);
+        """
+        
+        db.session.execute(db.text(email_verification_sql))
+        db.session.execute(db.text(password_reset_sql))
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': '✅ Email tables created successfully!',
+            'tables_created': ['email_verification_tokens', 'password_reset_tokens']
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'❌ Error creating email tables: {str(e)}'
+        }), 500
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
