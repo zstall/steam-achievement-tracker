@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail, From, To, Subject, Content
 from flask import current_app, url_for
-from models import db, EmailVerificationToken, PasswordResetToken
+from models import db, EmailVerificationToken, PasswordResetToken, EmailChangeToken
 
 class EmailService:
     """Handles all email operations using SendGrid"""
@@ -264,6 +264,107 @@ class EmailService:
         """
         
         return self._send_email(user.email, subject, html_content, text_content)
+    
+    def generate_email_change_token(self, user, new_email):
+        """Generate and store email change token"""
+        # Generate secure token
+        token = secrets.token_urlsafe(32)
+        
+        # Set expiration (24 hours)
+        expires_at = datetime.utcnow() + timedelta(hours=24)
+        
+        # Create token record
+        change_token = EmailChangeToken(
+            user_id=user.id,
+            token=token,
+            old_email=user.email,
+            new_email=new_email,
+            expires_at=expires_at
+        )
+        
+        db.session.add(change_token)
+        db.session.commit()
+        
+        return token
+    
+    def send_email_change_confirmation(self, user, new_email):
+        """Send email change confirmation to new email address"""
+        # Generate change token
+        token = self.generate_email_change_token(user, new_email)
+        
+        # Create confirmation URL
+        confirmation_url = url_for('confirm_email_change', token=token, _external=True)
+        
+        # Email content
+        subject = "Confirm your new email address - Steam Achievement Tracker"
+        
+        html_content = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); padding: 20px; text-align: center;">
+                <h1 style="color: white; margin: 0;">📧 Email Change Request</h1>
+            </div>
+            
+            <div style="padding: 30px; background-color: #f8f9fa;">
+                <h2 style="color: #2a5298;">Confirm Your New Email</h2>
+                
+                <p>Hi {user.username},</p>
+                
+                <p>You requested to change your email address for your Steam Achievement Tracker account:</p>
+                
+                <div style="background: #e9ecef; padding: 15px; border-radius: 5px; margin: 20px 0;">
+                    <p style="margin: 0;"><strong>Current email:</strong> {user.email or 'Not set'}</p>
+                    <p style="margin: 5px 0 0 0;"><strong>New email:</strong> {new_email}</p>
+                </div>
+                
+                <p>To confirm this change, click the button below:</p>
+                
+                <div style="text-align: center; margin: 30px 0;">
+                    <a href="{confirmation_url}" 
+                       style="background: #28a745; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
+                        ✅ Confirm Email Change
+                    </a>
+                </div>
+                
+                <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0;">
+                    <p style="margin: 0; color: #856404;">
+                        <strong>Security Note:</strong> This confirmation link will expire in 24 hours. If you didn't request this change, you can safely ignore this email.
+                    </p>
+                </div>
+                
+                <hr style="margin: 30px 0; border: none; border-top: 1px solid #dee2e6;">
+                
+                <p style="color: #6c757d; font-size: 12px; text-align: center;">
+                    Steam Achievement Tracker<br>
+                    <a href="{url_for('index', _external=True)}" style="color: #2a5298;">Visit our website</a>
+                </p>
+            </div>
+        </body>
+        </html>
+        """
+        
+        text_content = f"""
+        Email Change Confirmation
+        
+        Hi {user.username},
+        
+        You requested to change your email address for your Steam Achievement Tracker account.
+        
+        Current email: {user.email or 'Not set'}
+        New email: {new_email}
+        
+        To confirm this change, click this link:
+        {confirmation_url}
+        
+        This confirmation link will expire in 24 hours.
+        
+        If you didn't request this change, you can safely ignore this email.
+        
+        Best regards,
+        Steam Achievement Tracker Team
+        """
+        
+        return self._send_email(new_email, subject, html_content, text_content)
 
 # Global instance
 email_service = EmailService()

@@ -168,6 +168,7 @@ class ResetPasswordForm(FlaskForm):
             raise ValidationError('Passwords must match')
 
 class ProfileForm(FlaskForm):
+    email = StringField('Email Address', validators=[Email(message="Invalid email address")])
     steam_api_key = StringField('Steam API Key', validators=[DataRequired(), Length(min=32, max=32)])
     steam_id = StringField('Steam ID', validators=[DataRequired(), Length(min=17, max=17)])
     submit = SubmitField('Update Profile')
@@ -573,6 +574,49 @@ def resend_verification():
     flash('Please contact support to resend verification email.', 'info')
     return redirect(url_for('login'))
 
+@app.route('/confirm-email-change/<token>')
+def confirm_email_change(token):
+    """Confirm email change with token"""
+    from models import EmailChangeToken
+    
+    # Find the token
+    change_token = EmailChangeToken.query.filter_by(token=token).first()
+    
+    if not change_token:
+        flash('Invalid or expired email change link.', 'error')
+        return redirect(url_for('login'))
+    
+    if not change_token.is_valid:
+        if change_token.is_used:
+            flash('This email change link has already been used.', 'error')
+        else:
+            flash('This email change link has expired.', 'error')
+        return redirect(url_for('login'))
+    
+    # Get the user
+    user = change_token.user
+    if not user:
+        flash('User not found.', 'error')
+        return redirect(url_for('login'))
+    
+    # Update user's email
+    old_email = user.email
+    user.email = change_token.new_email
+    user.updated_at = datetime.utcnow()
+    
+    # Mark token as used
+    change_token.mark_as_used()
+    
+    db.session.commit()
+    
+    flash(f'Your email has been successfully changed to {change_token.new_email}!', 'success')
+    
+    # If user is logged in, redirect to profile, otherwise to login
+    if current_user.is_authenticated and current_user.id == user.id:
+        return redirect(url_for('profile'))
+    else:
+        return redirect(url_for('login'))
+
 @app.route('/forgot-password', methods=['GET', 'POST'])
 def forgot_password():
     """Handle forgot password requests"""
@@ -650,6 +694,25 @@ def profile():
     form = ProfileForm()
     
     if form.validate_on_submit():
+        # Handle email change
+        new_email = form.email.data.strip() if form.email.data else None
+        email_changed = False
+        
+        if new_email and new_email != current_user.email:
+            # Check if email is already taken by another user
+            existing_user = User.query.filter(User.email == new_email, User.id != current_user.id).first()
+            if existing_user:
+                flash('This email address is already in use by another account.', 'error')
+                return redirect(url_for('profile'))
+            
+            # Send confirmation email to new address
+            if email_service.send_email_change_confirmation(current_user, new_email):
+                flash(f'A confirmation email has been sent to {new_email}. Please check your email and click the confirmation link to complete the email change.', 'info')
+                email_changed = True
+            else:
+                flash('Failed to send confirmation email. Please try again later.', 'error')
+                return redirect(url_for('profile'))
+        
         # Encrypt and store Steam API key
         encrypted_api_key = encryption_manager.encrypt_steam_api_key(form.steam_api_key.data)
         
@@ -659,7 +722,12 @@ def profile():
         current_user.updated_at = datetime.utcnow()
         
         db.session.commit()
-        flash('Profile updated successfully!')
+        
+        if email_changed:
+            flash('Profile updated successfully! Your email change is pending confirmation.', 'success')
+        else:
+            flash('Profile updated successfully!', 'success')
+        
         return redirect(url_for('profile'))
     
     # Pre-populate form with existing data
@@ -668,6 +736,8 @@ def profile():
         form.steam_api_key.data = decrypted_key
     if current_user.steam_id:
         form.steam_id.data = current_user.steam_id
+    if current_user.email:
+        form.email.data = current_user.email
     
     return render_template('profile.html', form=form)
 
