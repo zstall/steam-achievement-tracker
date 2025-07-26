@@ -20,6 +20,11 @@ class EmailService:
         
     def init_app(self, app):
         """Initialize email service with Flask app config"""
+        # Debug environment variables
+        import os
+        print(f"🔍 Debug - Raw env SENDGRID_API_KEY: {os.environ.get('SENDGRID_API_KEY')}")
+        print(f"🔍 Debug - App config SENDGRID_API_KEY: {app.config.get('SENDGRID_API_KEY')}")
+        
         api_key = app.config.get('SENDGRID_API_KEY')
         self.from_email = app.config.get('SENDGRID_FROM_EMAIL', 'noreply@em8032.zstall.com')
         self.from_name = app.config.get('SENDGRID_FROM_NAME', 'Steam Achievement Tracker')
@@ -28,11 +33,13 @@ class EmailService:
             try:
                 self.client = SendGridAPIClient(api_key)
                 print("✅ SendGrid email service initialized successfully")
+                print(f"✅ Using from email: {self.from_email}")
             except Exception as e:
                 print(f"❌ Failed to initialize SendGrid: {e}")
                 self.client = None
         else:
             print("⚠️  SendGrid API key not found - email service disabled")
+            print(f"🔍 Available env vars starting with SEND: {[k for k in os.environ.keys() if k.startswith('SEND')]}")
     
     def _send_email(self, to_email, subject, html_content, text_content=None):
         """Send an email using SendGrid"""
