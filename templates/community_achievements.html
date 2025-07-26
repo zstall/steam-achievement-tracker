@@ -71,17 +71,35 @@
                         <small class="text-muted">by {{ achievement.creator }}</small>
                     </div>
                 </div>
-                {% if achievement.already_imported %}
-                    <button class="btn btn-secondary btn-sm" disabled>
-                        <i class="fas fa-check"></i> Already Imported
-                    </button>
-                {% else %}
-                    <a href="{{ url_for('import_achievement_route', shared_id=achievement.shared_id) }}" 
-                       class="btn btn-success btn-sm"
-                       onclick="return confirm('Import this achievement to your collection?')">
-                        <i class="fas fa-download"></i> Try This
-                    </a>
-                {% endif %}
+                <div class="d-flex gap-2">
+                    {% if achievement.creator_id == current_user.id %}
+                        <!-- User's own achievement - show management options -->
+                        <span class="badge bg-primary">Your Achievement</span>
+                        <button class="btn btn-danger btn-sm" 
+                                onclick="deleteSharedAchievement({{ achievement.shared_id }}, '{{ achievement.name }}', false)">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    {% elif achievement.already_imported %}
+                        <button class="btn btn-secondary btn-sm" disabled>
+                            <i class="fas fa-check"></i> Already Imported
+                        </button>
+                    {% else %}
+                        <a href="{{ url_for('import_achievement_route', shared_id=achievement.shared_id) }}" 
+                           class="btn btn-success btn-sm"
+                           onclick="return confirm('Import this achievement to your collection?')">
+                            <i class="fas fa-download"></i> Try This
+                        </a>
+                    {% endif %}
+                    
+                    {% if current_user.username == 'admin' and achievement.creator_id != current_user.id %}
+                        <!-- Admin controls for other users' achievements -->
+                        <button class="btn btn-outline-danger btn-sm" 
+                                onclick="deleteSharedAchievement({{ achievement.shared_id }}, '{{ achievement.name }}', true)"
+                                title="Admin: Delete Achievement">
+                            <i class="fas fa-shield-alt"></i> Remove
+                        </button>
+                    {% endif %}
+                </div>
             </div>
             <div class="card-body">
                 <p class="card-text">{{ achievement.description }}</p>
@@ -262,6 +280,75 @@ function filterByCompatibility() {
         
         item.style.display = show ? '' : 'none';
     });
+}
+
+function deleteSharedAchievement(sharedId, achievementName, isAdmin) {
+    const actionType = isAdmin ? 'remove this achievement from the community' : 'delete your shared achievement';
+    const confirmMessage = `Are you sure you want to ${actionType} "${achievementName}"?\n\nThis action cannot be undone.`;
+    
+    if (!confirm(confirmMessage)) {
+        return;
+    }
+    
+    const endpoint = isAdmin ? `/admin/delete-shared-achievement/${sharedId}` : `/delete-shared-achievement/${sharedId}`;
+    
+    fetch(endpoint, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success message
+            showNotification(data.message, 'success');
+            
+            // Remove the achievement card from the page
+            const achievementCard = document.querySelector(`button[onclick*="${sharedId}"]`).closest('.achievement-item');
+            if (achievementCard) {
+                achievementCard.style.transition = 'opacity 0.3s ease';
+                achievementCard.style.opacity = '0';
+                setTimeout(() => achievementCard.remove(), 300);
+            }
+        } else {
+            showNotification(data.error || 'Failed to delete achievement', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Network error occurred while deleting achievement', 'error');
+    });
+}
+
+function showNotification(message, type = 'info') {
+    // Create notification container if it doesn't exist
+    let container = document.getElementById('notificationContainer');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'notificationContainer';
+        container.className = 'position-fixed top-0 end-0 p-3';
+        container.style.zIndex = '9999';
+        document.body.appendChild(container);
+    }
+    
+    // Create notification
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type === 'error' ? 'danger' : 'success'} alert-dismissible fade show`;
+    notification.innerHTML = `
+        <i class="fas fa-${type === 'error' ? 'exclamation-triangle' : 'check-circle'}"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    container.appendChild(notification);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 5000);
 }
 </script>
 {% endblock %}

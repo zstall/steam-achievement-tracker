@@ -1089,13 +1089,64 @@ def unshare_achievement(achievement_id):
     
     return redirect(url_for('custom_achievements'))
 
+@app.route('/delete-shared-achievement/<int:shared_id>', methods=['POST'])
+@login_required
+def delete_shared_achievement(shared_id):
+    """Delete a shared achievement (user can only delete their own)"""
+    shared_achievement = SharedAchievement.query.filter_by(
+        id=shared_id,
+        creator_id=current_user.id
+    ).first()
+    
+    if not shared_achievement:
+        return jsonify({'success': False, 'error': 'Achievement not found or not owned by you'}), 404
+    
+    try:
+        achievement_name = shared_achievement.name
+        db.session.delete(shared_achievement)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Successfully deleted shared achievement "{achievement_name}"'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': f'Failed to delete achievement: {str(e)}'}), 500
+
+@app.route('/admin/delete-shared-achievement/<int:shared_id>', methods=['POST'])
+@login_required
+def admin_delete_shared_achievement(shared_id):
+    """Admin delete any shared achievement"""
+    if current_user.username != 'admin':
+        return jsonify({'success': False, 'error': 'Admin access required'}), 403
+    
+    shared_achievement = SharedAchievement.query.get(shared_id)
+    
+    if not shared_achievement:
+        return jsonify({'success': False, 'error': 'Achievement not found'}), 404
+    
+    try:
+        achievement_name = shared_achievement.name
+        creator_name = shared_achievement.creator.username if shared_achievement.creator else 'Unknown'
+        
+        db.session.delete(shared_achievement)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Successfully deleted shared achievement "{achievement_name}" by {creator_name}'
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': f'Failed to delete achievement: {str(e)}'}), 500
+
 @app.route('/community-achievements')
 @login_required
 def community_achievements():
     """Display community shared achievements"""
-    # Load shared achievements from database (exclude user's own)
+    # Load shared achievements from database (include all active achievements)
     shared_achievements = SharedAchievement.query.filter(
-        SharedAchievement.creator_id != current_user.id,
         SharedAchievement.is_active == True
     ).join(User).all()
     
