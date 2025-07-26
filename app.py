@@ -3,7 +3,7 @@ from flask_login import LoginManager, UserMixin, login_user, logout_user, login_
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileAllowed
 from wtforms import StringField, PasswordField, SubmitField, TextAreaField, SelectMultipleField, SelectField
-from wtforms.validators import DataRequired, Length
+from wtforms.validators import DataRequired, Length, Email, ValidationError
 from wtforms.widgets import CheckboxInput, ListWidget
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -19,8 +19,9 @@ from collections import defaultdict
 
 # Import our models and configuration
 from config import config
-from models import db, User, Game, UserGame, SteamAchievement, CustomAchievement, SharedAchievement, AchievementImage, ActivityFeed, get_or_create_game, log_activity, get_recent_activities
+from models import db, User, Game, UserGame, SteamAchievement, CustomAchievement, SharedAchievement, AchievementImage, ActivityFeed, EmailVerificationToken, PasswordResetToken, get_or_create_game, log_activity, get_recent_activities
 from s3_manager import s3_manager
+from email_service import email_service
 
 def create_app():
     """Application factory pattern"""
@@ -35,6 +36,9 @@ def create_app():
     
     # Initialize S3 manager
     s3_manager.init_app(app)
+    
+    # Initialize email service
+    email_service.init_app(app)
     
     # Create tables on first run (for Railway deployment)
     with app.app_context():
@@ -98,8 +102,22 @@ class LoginForm(FlaskForm):
 
 class RegisterForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired(), Length(min=3, max=20)])
+    email = StringField('Email', validators=[DataRequired(), Email(), Length(max=255)])
     password = PasswordField('Password', validators=[DataRequired(), Length(min=6)])
     submit = SubmitField('Sign Up')
+
+class ForgotPasswordForm(FlaskForm):
+    email = StringField('Email', validators=[DataRequired(), Email(), Length(max=255)])
+    submit = SubmitField('Send Reset Link')
+
+class ResetPasswordForm(FlaskForm):
+    password = PasswordField('New Password', validators=[DataRequired(), Length(min=6)])
+    confirm_password = PasswordField('Confirm New Password', validators=[DataRequired(), Length(min=6)])
+    submit = SubmitField('Reset Password')
+    
+    def validate_confirm_password(self, field):
+        if field.data != self.password.data:
+            raise ValidationError('Passwords must match')
 
 class ProfileForm(FlaskForm):
     steam_api_key = StringField('Steam API Key', validators=[DataRequired(), Length(min=32, max=32)])
@@ -418,11 +436,14 @@ def login():
         user = User.query.filter_by(username=username).first()
         
         if user and user.is_active and check_password_hash(user.password_hash, form.password.data):
-            login_user(user)
-            next_page = request.args.get('next')
-            return redirect(next_page) if next_page else redirect(url_for('index'))
+            if not user.is_verified:
+                flash('Please verify your email address before logging in. Check your email for the verification link.', 'warning')
+            else:
+                login_user(user)
+                next_page = request.args.get('next')
+                return redirect(next_page) if next_page else redirect(url_for('index'))
         else:
-            flash('Invalid username or password')
+            flash('Invalid username or password', 'error')
     
     return render_template('login.html', form=form)
 
@@ -431,25 +452,143 @@ def register():
     form = RegisterForm()
     if form.validate_on_submit():
         username = form.username.data
-        existing_user = User.query.filter_by(username=username).first()
+        email = form.email.data
+        
+        # Check for existing username or email
+        existing_user = User.query.filter(
+            (User.username == username) | (User.email == email)
+        ).first()
         
         if existing_user:
-            flash('Username already exists')
+            if existing_user.username == username:
+                flash('Username already exists', 'error')
+            else:
+                flash('Email address already registered', 'error')
         else:
-            user = User(
-                username=username,
-                email=f"{username}@temp.example.com",  # Temporary email
-                password_hash=generate_password_hash(form.password.data),
-                created_at=datetime.utcnow(),
-                is_verified=False,
-                is_active=True
-            )
-            db.session.add(user)
-            db.session.commit()
-            flash('Registration successful! Please log in.')
-            return redirect(url_for('login'))
+            try:
+                user = User(
+                    username=username,
+                    email=email,
+                    password_hash=generate_password_hash(form.password.data),
+                    created_at=datetime.utcnow(),
+                    is_verified=False,  # Require email verification
+                    is_active=True
+                )
+                db.session.add(user)
+                db.session.commit()
+                
+                # Send verification email
+                if email_service.send_verification_email(user):
+                    flash('Registration successful! Please check your email to verify your account before logging in.', 'success')
+                else:
+                    flash('Registration successful, but we couldn\'t send the verification email. Please contact support.', 'warning')
+                
+                return redirect(url_for('login'))
+                
+            except Exception as e:
+                db.session.rollback()
+                print(f"❌ Registration error: {e}")
+                flash('Registration failed. Please try again.', 'error')
     
     return render_template('register.html', form=form)
+
+@app.route('/verify-email/<token>')
+def verify_email(token):
+    """Verify email address using token"""
+    verification_token = EmailVerificationToken.query.filter_by(token=token).first()
+    
+    if not verification_token:
+        flash('Invalid verification link.', 'error')
+        return redirect(url_for('login'))
+    
+    if not verification_token.is_valid:
+        if verification_token.is_used:
+            flash('This verification link has already been used.', 'info')
+        else:
+            flash('This verification link has expired. Please request a new one.', 'error')
+        return redirect(url_for('login'))
+    
+    # Verify the user
+    user = verification_token.user
+    user.is_verified = True
+    verification_token.mark_as_used()
+    
+    db.session.commit()
+    
+    flash('Email verified successfully! You can now log in.', 'success')
+    return redirect(url_for('login'))
+
+@app.route('/resend-verification')
+def resend_verification():
+    """Resend verification email (for logged out users)"""
+    # We'll implement this if needed
+    flash('Please contact support to resend verification email.', 'info')
+    return redirect(url_for('login'))
+
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    """Handle forgot password requests"""
+    form = ForgotPasswordForm()
+    if form.validate_on_submit():
+        email = form.email.data
+        user = User.query.filter_by(email=email).first()
+        
+        if user:
+            try:
+                # Get client IP for security logging
+                client_ip = request.environ.get('HTTP_X_FORWARDED_FOR', request.remote_addr)
+                
+                # Send password reset email
+                if email_service.send_password_reset_email(user, client_ip):
+                    flash('Password reset instructions have been sent to your email address.', 'success')
+                else:
+                    flash('Unable to send reset email at this time. Please try again later.', 'error')
+            except Exception as e:
+                print(f"❌ Password reset error: {e}")
+                flash('An error occurred. Please try again later.', 'error')
+        else:
+            # Don't reveal whether email exists for security
+            flash('Password reset instructions have been sent to your email address.', 'success')
+        
+        return redirect(url_for('login'))
+    
+    return render_template('forgot_password.html', form=form)
+
+@app.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    """Handle password reset with token"""
+    reset_token = PasswordResetToken.query.filter_by(token=token).first()
+    
+    if not reset_token:
+        flash('Invalid reset link.', 'error')
+        return redirect(url_for('login'))
+    
+    if not reset_token.is_valid:
+        if reset_token.is_used:
+            flash('This reset link has already been used.', 'info')
+        else:
+            flash('This reset link has expired. Please request a new one.', 'error')
+        return redirect(url_for('forgot_password'))
+    
+    form = ResetPasswordForm()
+    if form.validate_on_submit():
+        try:
+            # Update user password
+            user = reset_token.user
+            user.password_hash = generate_password_hash(form.password.data)
+            reset_token.mark_as_used()
+            
+            db.session.commit()
+            
+            flash('Your password has been reset successfully. You can now log in with your new password.', 'success')
+            return redirect(url_for('login'))
+            
+        except Exception as e:
+            db.session.rollback()
+            print(f"❌ Password reset completion error: {e}")
+            flash('An error occurred while resetting your password. Please try again.', 'error')
+    
+    return render_template('reset_password.html', form=form, token=token)
 
 @app.route('/logout')
 @login_required

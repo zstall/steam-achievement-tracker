@@ -45,7 +45,12 @@ class Config:
     # Redis Configuration (for future caching)
     REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
     
-    # Email Configuration (for future features)
+    # Email Configuration with SendGrid
+    SENDGRID_API_KEY = os.environ.get('SENDGRID_API_KEY')
+    SENDGRID_FROM_EMAIL = os.environ.get('SENDGRID_FROM_EMAIL', 'noreply@em8032.zstall.com')
+    SENDGRID_FROM_NAME = os.environ.get('SENDGRID_FROM_NAME', 'Steam Achievement Tracker')
+    
+    # Legacy email config (keeping for compatibility)
     MAIL_SERVER = os.environ.get('MAIL_SERVER')
     MAIL_PORT = int(os.environ.get('MAIL_PORT', 587))
     MAIL_USE_TLS = os.environ.get('MAIL_USE_TLS', 'True').lower() == 'true'

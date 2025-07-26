@@ -460,3 +460,74 @@ def get_recent_activities(limit=50, user_id=None, activity_type=None, include_pr
     
     # Order by most recent and limit
     return query.order_by(ActivityFeed.created_at.desc()).limit(limit).all()
+
+
+class EmailVerificationToken(db.Model):
+    """Email verification tokens for new user registration"""
+    __tablename__ = 'email_verification_tokens'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    token = db.Column(db.String(255), unique=True, nullable=False, index=True)
+    email = db.Column(db.String(255), nullable=False)  # Store email in case user changes it
+    
+    # Token metadata
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    is_used = db.Column(db.Boolean, default=False, nullable=False)
+    used_at = db.Column(db.DateTime, nullable=True)
+    
+    # Relationships
+    user = db.relationship('User', backref='verification_tokens')
+    
+    @property
+    def is_expired(self):
+        """Check if token has expired"""
+        return datetime.utcnow() > self.expires_at
+    
+    @property
+    def is_valid(self):
+        """Check if token is valid (not used and not expired)"""
+        return not self.is_used and not self.is_expired
+    
+    def mark_as_used(self):
+        """Mark token as used"""
+        self.is_used = True
+        self.used_at = datetime.utcnow()
+
+
+class PasswordResetToken(db.Model):
+    """Password reset tokens for forgot password functionality"""
+    __tablename__ = 'password_reset_tokens'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    token = db.Column(db.String(255), unique=True, nullable=False, index=True)
+    email = db.Column(db.String(255), nullable=False)  # Store email for security
+    
+    # Token metadata
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    is_used = db.Column(db.Boolean, default=False, nullable=False)
+    used_at = db.Column(db.DateTime, nullable=True)
+    
+    # IP tracking for security
+    request_ip = db.Column(db.String(45), nullable=True)  # IPv6 support
+    
+    # Relationships
+    user = db.relationship('User', backref='reset_tokens')
+    
+    @property
+    def is_expired(self):
+        """Check if token has expired"""
+        return datetime.utcnow() > self.expires_at
+    
+    @property
+    def is_valid(self):
+        """Check if token is valid (not used and not expired)"""
+        return not self.is_used and not self.is_expired
+    
+    def mark_as_used(self):
+        """Mark token as used"""
+        self.is_used = True
+        self.used_at = datetime.utcnow()
