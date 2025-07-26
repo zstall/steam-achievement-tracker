@@ -1506,6 +1506,7 @@ def admin_create_email_tables():
         # Drop tables if they exist (to avoid conflicts)
         db.session.execute(db.text('DROP TABLE IF EXISTS email_verification_tokens CASCADE'))
         db.session.execute(db.text('DROP TABLE IF EXISTS password_reset_tokens CASCADE'))
+        db.session.execute(db.text('DROP TABLE IF EXISTS email_change_tokens CASCADE'))
         
         # Create tables with raw SQL to avoid sequence conflicts
         email_verification_sql = """
@@ -1537,14 +1538,30 @@ def admin_create_email_tables():
         CREATE INDEX idx_password_reset_token ON password_reset_tokens(token);
         """
         
+        email_change_sql = """
+        CREATE TABLE email_change_tokens (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            token VARCHAR(255) UNIQUE NOT NULL,
+            old_email VARCHAR(255),
+            new_email VARCHAR(255) NOT NULL,
+            created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
+            expires_at TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+            is_used BOOLEAN NOT NULL DEFAULT FALSE,
+            used_at TIMESTAMP WITHOUT TIME ZONE
+        );
+        CREATE INDEX idx_email_change_token ON email_change_tokens(token);
+        """
+        
         db.session.execute(db.text(email_verification_sql))
         db.session.execute(db.text(password_reset_sql))
+        db.session.execute(db.text(email_change_sql))
         db.session.commit()
         
         return jsonify({
             'success': True,
             'message': '✅ Email tables created successfully!',
-            'tables_created': ['email_verification_tokens', 'password_reset_tokens']
+            'tables_created': ['email_verification_tokens', 'password_reset_tokens', 'email_change_tokens']
         })
         
     except Exception as e:
