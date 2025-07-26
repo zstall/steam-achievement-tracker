@@ -1269,12 +1269,25 @@ def admin_users():
         return redirect(url_for('index'))
     
     users = User.query.order_by(User.created_at.desc()).all()
+    return render_template('admin_users.html', users=users)
+
+@app.route('/admin/users/json')
+@login_required  
+def admin_users_json():
+    """Admin route to get users as JSON (for API calls)"""
+    if current_user.username != 'admin':
+        return jsonify({'error': 'Access denied'}), 403
+    
+    users = User.query.order_by(User.created_at.desc()).all()
     return jsonify({
         'users': [
             {
+                'id': user.id,
                 'username': user.username,
                 'email': user.email,
                 'created_at': user.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                'is_verified': user.is_verified,
+                'is_active': user.is_active,
                 'has_steam_api_key': bool(user.steam_api_key_encrypted),
                 'games_count': user.user_games.count(),
                 'custom_achievements_count': user.custom_achievements.count()
@@ -1283,6 +1296,98 @@ def admin_users():
         ],
         'total_users': len(users)
     })
+
+@app.route('/admin/users/<int:user_id>/delete', methods=['POST'])
+@login_required
+def admin_delete_user(user_id):
+    """Admin route to delete a user and all their data"""
+    if current_user.username != 'admin':
+        return jsonify({'error': 'Access denied'}), 403
+    
+    # Prevent admin from deleting themselves
+    if user_id == current_user.id:
+        return jsonify({'error': 'Cannot delete your own admin account'}), 400
+    
+    user_to_delete = User.query.get_or_404(user_id)
+    
+    try:
+        username = user_to_delete.username
+        
+        # Delete all user data (CASCADE should handle most of this)
+        # But let's be explicit about important tables
+        
+        # Delete custom achievements (this will cascade to shared achievements)
+        CustomAchievement.query.filter_by(user_id=user_id).delete()
+        
+        # Delete shared achievements created by this user
+        SharedAchievement.query.filter_by(creator_id=user_id).delete()
+        
+        # Delete activity feed entries
+        ActivityFeed.query.filter_by(user_id=user_id).delete()
+        
+        # Delete achievement images uploaded by user
+        AchievementImage.query.filter_by(uploaded_by=user_id).delete()
+        
+        # Delete email tokens
+        try:
+            EmailVerificationToken.query.filter_by(user_id=user_id).delete()
+            PasswordResetToken.query.filter_by(user_id=user_id).delete()
+        except:
+            pass  # Tables might not exist yet
+        
+        # Delete user games and Steam achievements (CASCADE should handle this)
+        UserGame.query.filter_by(user_id=user_id).delete()
+        
+        # Finally delete the user
+        db.session.delete(user_to_delete)
+        db.session.commit()
+        
+        print(f"🗑️  Admin deleted user: {username} (ID: {user_id})")
+        
+        return jsonify({
+            'success': True,
+            'message': f'User "{username}" and all their data have been permanently deleted.'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ Error deleting user {user_id}: {e}")
+        return jsonify({
+            'error': f'Failed to delete user: {str(e)}'
+        }), 500
+
+@app.route('/admin/users/<int:user_id>/toggle-status', methods=['POST'])
+@login_required
+def admin_toggle_user_status(user_id):
+    """Admin route to activate/deactivate a user"""
+    if current_user.username != 'admin':
+        return jsonify({'error': 'Access denied'}), 403
+    
+    # Prevent admin from deactivating themselves
+    if user_id == current_user.id:
+        return jsonify({'error': 'Cannot modify your own admin account'}), 400
+    
+    user = User.query.get_or_404(user_id)
+    
+    try:
+        # Toggle active status
+        user.is_active = not user.is_active
+        db.session.commit()
+        
+        status = "activated" if user.is_active else "deactivated"
+        print(f"👤 Admin {status} user: {user.username}")
+        
+        return jsonify({
+            'success': True,
+            'message': f'User "{user.username}" has been {status}.',
+            'is_active': user.is_active
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'error': f'Failed to update user status: {str(e)}'
+        }), 500
 
 @app.route('/admin/fix-existing-users')
 def admin_fix_existing_users():
