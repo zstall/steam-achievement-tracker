@@ -46,10 +46,31 @@ def create_app():
             # Check if tables exist by trying to query User table
             db.session.execute(db.text('SELECT 1 FROM "user" LIMIT 1'))
             print("✅ Database tables already exist")
+            
+            # Check if email tables exist, if not suggest manual creation
+            try:
+                db.session.execute(db.text('SELECT 1 FROM email_verification_tokens LIMIT 1'))
+                print("✅ Email tables already exist")
+            except Exception:
+                print("⚠️  Email tables missing - run create_email_tables.py manually")
+                
         except Exception as e:
-            print("🔧 Creating database tables...")
-            db.create_all()
-            print("✅ Database tables created successfully")
+            print("🔧 Creating basic database tables...")
+            # Only create basic tables, skip email tables to avoid conflicts
+            from models import User, Game, UserGame, SteamAchievement, CustomAchievement, SharedAchievement, AchievementImage, ActivityFeed
+            
+            # Create tables individually to avoid email table conflicts
+            User.__table__.create(db.engine, checkfirst=True)
+            Game.__table__.create(db.engine, checkfirst=True)
+            UserGame.__table__.create(db.engine, checkfirst=True)
+            SteamAchievement.__table__.create(db.engine, checkfirst=True)
+            CustomAchievement.__table__.create(db.engine, checkfirst=True)
+            SharedAchievement.__table__.create(db.engine, checkfirst=True)
+            AchievementImage.__table__.create(db.engine, checkfirst=True)
+            ActivityFeed.__table__.create(db.engine, checkfirst=True)
+            
+            print("✅ Basic database tables created successfully")
+            print("⚠️  Run create_email_tables.py to add email functionality")
     
     return app
 
