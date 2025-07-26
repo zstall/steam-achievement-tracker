@@ -53,6 +53,33 @@ def create_app():
                 print("✅ Email tables already exist")
             except Exception:
                 print("⚠️  Email tables missing - run create_email_tables.py manually")
+            
+            # Fix existing users automatically
+            try:
+                users_to_fix = User.query.filter(
+                    db.or_(
+                        User.is_verified == False,
+                        User.email.like('%@temp.example.com'),
+                        User.email == None
+                    )
+                ).all()
+                
+                if users_to_fix:
+                    print(f"🔧 Fixing {len(users_to_fix)} existing users...")
+                    for user in users_to_fix:
+                        if not user.email or '@temp.example.com' in user.email or user.email is None:
+                            user.email = f"{user.username}@temp-verified.local"
+                        user.is_verified = True
+                        print(f"   ✅ Fixed user: {user.username} (email: {user.email})")
+                    
+                    db.session.commit()
+                    print("✅ All existing users fixed and can now log in")
+                else:
+                    print("✅ All users already have proper verification status")
+                    
+            except Exception as e:
+                print(f"⚠️  Could not fix existing users: {e}")
+                # Don't fail the app startup for this
                 
         except Exception as e:
             print("🔧 Creating basic database tables...")
