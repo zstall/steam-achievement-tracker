@@ -1,0 +1,325 @@
+{% extends "base.html" %}
+
+{% block title %}Browse Users - Steam Achievement Tracker{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h1><i class="fas fa-users"></i> Browse Users</h1>
+            <a href="{{ url_for('friends_list') }}" class="btn btn-outline-primary">
+                <i class="fas fa-user-friends"></i> My Friends
+            </a>
+        </div>
+        <p class="text-muted">Discover and connect with other achievement hunters</p>
+    </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            {% set alert_class = 'alert-info' %}
+            {% if category == 'success' %}
+                {% set alert_class = 'alert-success' %}
+            {% elif category == 'error' %}
+                {% set alert_class = 'alert-danger' %}
+            {% elif category == 'warning' %}
+                {% set alert_class = 'alert-warning' %}
+            {% endif %}
+            <div class="alert {{ alert_class }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+<!-- Search and Filter Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-search"></i> Search & Filter</h5>
+            </div>
+            <div class="card-body">
+                <form method="GET" class="row g-3">
+                    <div class="col-md-4">
+                        <label for="search" class="form-label">Search by username</label>
+                        <input type="text" class="form-control" id="search" name="search" 
+                               value="{{ request.args.get('search', '') }}" 
+                               placeholder="Enter username...">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="sort" class="form-label">Sort by</label>
+                        <select class="form-select" id="sort" name="sort">
+                            <option value="newest" {{ 'selected' if request.args.get('sort') == 'newest' else '' }}>Newest members</option>
+                            <option value="achievements" {{ 'selected' if request.args.get('sort') == 'achievements' else '' }}>Most achievements</option>
+                            <option value="friends" {{ 'selected' if request.args.get('sort') == 'friends' else '' }}>Most friends</option>
+                            <option value="alphabetical" {{ 'selected' if request.args.get('sort') == 'alphabetical' else '' }}>Alphabetical</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="filter" class="form-label">Show only</label>
+                        <select class="form-select" id="filter" name="filter">
+                            <option value="all" {{ 'selected' if request.args.get('filter') == 'all' else '' }}>All users</option>
+                            <option value="friends_of_friends" {{ 'selected' if request.args.get('filter') == 'friends_of_friends' else '' }}>Friends of friends</option>
+                            <option value="active" {{ 'selected' if request.args.get('filter') == 'active' else '' }}>Recently active</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">&nbsp;</label>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search"></i>
+                            </button>
+                            <a href="{{ url_for('browse_users') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-redo"></i>
+                            </a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- User Results -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5><i class="fas fa-user-circle"></i> Users {{ '(' + users|length|string + ' found)' if users else '' }}</h5>
+                {% if users %}
+                    <span class="badge bg-info">{{ users|length }} result{{ 's' if users|length != 1 else '' }}</span>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if users %}
+                    <div class="row">
+                        {% for user in users %}
+                        <div class="col-lg-4 col-md-6 mb-4">
+                            <div class="card bg-dark border-secondary h-100">
+                                <div class="card-body">
+                                    <div class="d-flex align-items-center mb-3">
+                                        <i class="fas fa-user-circle fa-3x text-info me-3"></i>
+                                        <div class="flex-grow-1">
+                                            <h6 class="mb-1">
+                                                <a href="{{ url_for('user_profile', username=user.username) }}" 
+                                                   class="text-decoration-none">
+                                                    {{ user.username }}
+                                                </a>
+                                                {% if user.is_verified %}
+                                                    <i class="fas fa-check-circle text-success ms-1" title="Verified"></i>
+                                                {% endif %}
+                                            </h6>
+                                            <small class="text-muted">
+                                                Member since {{ user.created_at.strftime('%b %Y') }}
+                                            </small>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- User Stats -->
+                                    <div class="row text-center mb-3">
+                                        <div class="col-4">
+                                            <div class="text-warning fw-bold">{{ user.user_stats.total_achievements if user.user_stats else 0 }}</div>
+                                            <small class="text-muted">Achievements</small>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="text-success fw-bold">{{ user.user_stats.collections_completed if user.user_stats else 0 }}</div>
+                                            <small class="text-muted">Collections</small>
+                                        </div>
+                                        <div class="col-4">
+                                            <div class="text-info fw-bold">{{ user.user_stats.friend_count if user.user_stats else 0 }}</div>
+                                            <small class="text-muted">Friends</small>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Mutual Friends -->
+                                    {% if user.mutual_friends and user.mutual_friends|length > 0 %}
+                                        <div class="mb-3">
+                                            <small class="text-muted">
+                                                <i class="fas fa-users"></i> 
+                                                {{ user.mutual_friends|length }} mutual friend{{ 's' if user.mutual_friends|length != 1 else '' }}:
+                                                {% for friend in user.mutual_friends[:3] %}
+                                                    {{ friend.username }}{% if not loop.last %}, {% endif %}
+                                                {% endfor %}
+                                                {% if user.mutual_friends|length > 3 %}...{% endif %}
+                                            </small>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    <!-- Recent Achievement -->
+                                    {% if user.recent_achievement %}
+                                        <div class="mb-3">
+                                            <small class="text-muted d-block">Recent achievement:</small>
+                                            <div class="d-flex align-items-center">
+                                                {% if user.recent_achievement.image_filename %}
+                                                    <img src="{{ get_achievement_image_url(user.recent_achievement.image_filename) }}" 
+                                                         class="achievement-card-image me-2" 
+                                                         alt="{{ user.recent_achievement.name }}">
+                                                {% else %}
+                                                    <i class="fas fa-trophy text-warning me-2"></i>
+                                                {% endif %}
+                                                <div>
+                                                    <div class="small fw-bold">{{ user.recent_achievement.name }}</div>
+                                                    <small class="text-muted">{{ user.recent_achievement.created_at.strftime('%b %d') }}</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                    
+                                    <!-- Action Buttons -->
+                                    <div class="d-flex gap-2 mt-auto">
+                                        <a href="{{ url_for('user_profile', username=user.username) }}" 
+                                           class="btn btn-outline-info btn-sm flex-grow-1">
+                                            <i class="fas fa-eye"></i> View Profile
+                                        </a>
+                                        {% if user.friendship_status == 'none' %}
+                                            <button class="btn btn-primary btn-sm" onclick="sendFriendRequest({{ user.id }})">
+                                                <i class="fas fa-user-plus"></i>
+                                            </button>
+                                        {% elif user.friendship_status == 'pending' %}
+                                            <button class="btn btn-warning btn-sm" disabled>
+                                                <i class="fas fa-clock"></i>
+                                            </button>
+                                        {% elif user.friendship_status == 'accepted' %}
+                                            <button class="btn btn-success btn-sm" disabled>
+                                                <i class="fas fa-check"></i>
+                                            </button>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <!-- Pagination would go here -->
+                    {% if users|length >= 12 %}
+                        <div class="text-center mt-4">
+                            <button class="btn btn-outline-primary" onclick="loadMoreUsers()">
+                                <i class="fas fa-plus"></i> Load More Users
+                            </button>
+                        </div>
+                    {% endif %}
+                    
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-user-slash fa-3x text-muted mb-3"></i>
+                        <h4 class="text-muted">No users found</h4>
+                        <p class="text-muted">
+                            {% if request.args.get('search') %}
+                                No users match your search criteria. Try adjusting your search terms.
+                            {% else %}
+                                There are no users to display at the moment.
+                            {% endif %}
+                        </p>
+                        {% if request.args.get('search') %}
+                            <a href="{{ url_for('browse_users') }}" class="btn btn-outline-primary">
+                                <i class="fas fa-redo"></i> Clear Search
+                            </a>
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Stats -->
+{% if community_stats %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-chart-bar"></i> Community Stats</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-3">
+                        <div class="h3 mb-0 text-primary">{{ community_stats.total_users }}</div>
+                        <small class="text-muted">Total Members</small>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="h3 mb-0 text-success">{{ community_stats.active_users }}</div>
+                        <small class="text-muted">Active This Week</small>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="h3 mb-0 text-warning">{{ community_stats.total_achievements }}</div>
+                        <small class="text-muted">Total Achievements</small>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="h3 mb-0 text-info">{{ community_stats.friendships }}</div>
+                        <small class="text-muted">Total Friendships</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+function sendFriendRequest(userId) {
+    if (!confirm('Send a friend request to this user?')) {
+        return;
+    }
+    
+    fetch(`/send-friend-request/${userId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message, 'success');
+            // Update button to show request sent
+            location.reload();
+        } else {
+            showNotification(data.error || 'Failed to send friend request', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Network error occurred', 'error');
+    });
+}
+
+function loadMoreUsers() {
+    // Implementation for pagination
+    showNotification('Load more functionality coming soon!', 'info');
+}
+
+function showNotification(message, type = 'info') {
+    // Create notification container if it doesn't exist
+    let container = document.getElementById('notificationContainer');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'notificationContainer';
+        container.className = 'position-fixed top-0 end-0 p-3';
+        container.style.zIndex = '9999';
+        document.body.appendChild(container);
+    }
+    
+    // Create notification
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type === 'error' ? 'danger' : 'success'} alert-dismissible fade show`;
+    notification.innerHTML = `
+        <i class="fas fa-${type === 'error' ? 'exclamation-triangle' : 'check-circle'}"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    container.appendChild(notification);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}

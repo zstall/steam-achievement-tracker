@@ -850,3 +850,144 @@ class UserCollectionProgress(db.Model):
         }
 
 
+class UserFriendship(db.Model):
+    """User friendship relationships and friend requests"""
+    __tablename__ = 'user_friendships'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    friend_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    
+    # Friendship status and metadata
+    status = db.Column(db.String(20), nullable=False, default='pending')  # 'pending', 'accepted', 'blocked'
+    requested_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    accepted_at = db.Column(db.DateTime, nullable=True)
+    blocked_at = db.Column(db.DateTime, nullable=True)
+    
+    # Who initiated the friendship
+    initiated_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    
+    # Optional friendship notes/context
+    request_message = db.Column(db.Text, nullable=True)
+    
+    # Relationships
+    user = db.relationship('User', foreign_keys=[user_id], backref='sent_friendships')
+    friend = db.relationship('User', foreign_keys=[friend_id], backref='received_friendships')
+    initiator = db.relationship('User', foreign_keys=[initiated_by])
+    
+    # Constraints
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'friend_id', name='unique_friendship'),
+        db.CheckConstraint('user_id != friend_id', name='no_self_friendship'),
+        db.Index('idx_friendship_status', 'status'),
+        db.Index('idx_friendship_user_status', 'user_id', 'status'),
+        db.Index('idx_friendship_friend_status', 'friend_id', 'status'),
+    )
+    
+    def __repr__(self):
+        return f'<UserFriendship {self.user.username} -> {self.friend.username} ({self.status})>'
+    
+    @property
+    def is_pending(self):
+        return self.status == 'pending'
+    
+    @property
+    def is_accepted(self):
+        return self.status == 'accepted'
+    
+    @property
+    def is_blocked(self):
+        return self.status == 'blocked'
+    
+    def accept_friendship(self):
+        """Accept a pending friend request"""
+        if self.status == 'pending':
+            self.status = 'accepted'
+            self.accepted_at = datetime.utcnow()
+            
+            # Create the reciprocal relationship
+            reciprocal = UserFriendship.query.filter_by(
+                user_id=self.friend_id,
+                friend_id=self.user_id
+            ).first()
+            
+            if not reciprocal:
+                reciprocal = UserFriendship(
+                    user_id=self.friend_id,
+                    friend_id=self.user_id,
+                    status='accepted',
+                    initiated_by=self.initiated_by,
+                    requested_at=self.requested_at,
+                    accepted_at=datetime.utcnow()
+                )
+                db.session.add(reciprocal)
+            else:
+                reciprocal.status = 'accepted'
+                reciprocal.accepted_at = datetime.utcnow()
+    
+    def block_user(self):
+        """Block a user (can be used on any friendship status)"""
+        self.status = 'blocked'
+        self.blocked_at = datetime.utcnow()
+        
+        # Update reciprocal relationship
+        reciprocal = UserFriendship.query.filter_by(
+            user_id=self.friend_id,
+            friend_id=self.user_id
+        ).first()
+        
+        if reciprocal:
+            reciprocal.status = 'blocked'
+            reciprocal.blocked_at = datetime.utcnow()
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user': self.user.username,
+            'friend': self.friend.username,
+            'status': self.status,
+            'initiated_by': self.initiator.username,
+            'requested_at': self.requested_at.isoformat(),
+            'accepted_at': self.accepted_at.isoformat() if self.accepted_at else None,
+            'request_message': self.request_message
+        }
+
+# Friendship utility functions
+def get_user_friends(user_id, status='accepted'):
+    """Get all friends for a user with specified status"""
+    return UserFriendship.query.filter_by(
+        user_id=user_id,
+        status=status
+    ).join(User, UserFriendship.friend_id == User.id).all()
+
+def get_mutual_friends(user1_id, user2_id):
+    """Get mutual friends between two users"""
+    user1_friends = set(f.friend_id for f in get_user_friends(user1_id))
+    user2_friends = set(f.friend_id for f in get_user_friends(user2_id))
+    mutual_friend_ids = user1_friends.intersection(user2_friends)
+    
+    if mutual_friend_ids:
+        return User.query.filter(User.id.in_(mutual_friend_ids)).all()
+    return []
+
+def are_friends(user1_id, user2_id):
+    """Check if two users are friends"""
+    friendship = UserFriendship.query.filter_by(
+        user_id=user1_id,
+        friend_id=user2_id,
+        status='accepted'
+    ).first()
+    return friendship is not None
+
+def get_friendship_status(user1_id, user2_id):
+    """Get the friendship status between two users"""
+    friendship = UserFriendship.query.filter_by(
+        user_id=user1_id,
+        friend_id=user2_id
+    ).first()
+    
+    if not friendship:
+        return None
+    return friendship.status
+
+

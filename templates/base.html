@@ -149,6 +149,19 @@
                             <i class="fas fa-users"></i> Community
                         </a>
                         <ul class="dropdown-menu" aria-labelledby="communityDropdown">
+                            <li><h6 class="dropdown-header">
+                                <i class="fas fa-user-friends"></i> Social
+                            </h6></li>
+                            <li><a class="dropdown-item" href="{{ url_for('friends_list') }}">
+                                <i class="fas fa-user-friends"></i> My Friends
+                            </a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('browse_users') }}">
+                                <i class="fas fa-search"></i> Find Users
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><h6 class="dropdown-header">
+                                <i class="fas fa-globe"></i> Community
+                            </h6></li>
                             <li><a class="dropdown-item" href="{{ url_for('community_achievements') }}">
                                 <i class="fas fa-share-alt"></i> Browse Achievements
                             </a></li>

@@ -19,7 +19,7 @@ from collections import defaultdict
 
 # Import our models and configuration
 from config import config
-from models import db, User, Game, UserGame, SteamAchievement, CustomAchievement, SharedAchievement, AchievementImage, ActivityFeed, EmailVerificationToken, PasswordResetToken, AchievementCollection, CollectionItem, UserCollectionProgress, get_or_create_game, log_activity, get_recent_activities
+from models import db, User, Game, UserGame, SteamAchievement, CustomAchievement, SharedAchievement, AchievementImage, ActivityFeed, EmailVerificationToken, PasswordResetToken, AchievementCollection, CollectionItem, UserCollectionProgress, UserFriendship, get_or_create_game, log_activity, get_recent_activities, get_user_friends, get_mutual_friends, are_friends, get_friendship_status
 from s3_manager import s3_manager
 from email_service import email_service
 
@@ -2141,6 +2141,271 @@ def join_collection(collection_id):
         return jsonify({
             'success': True,
             'message': f'Successfully joined "{collection.name}"!'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ========================================
+# SOCIAL FEATURES: USER PROFILES & FRIENDS
+# ========================================
+
+@app.route('/users')
+@login_required
+def browse_users():
+    """Browse and discover other users"""
+    search = request.args.get('search', '').strip()
+    filter_by = request.args.get('filter', 'active')  # active, new, top_achievers
+    
+    # Base query for users (exclude current user)
+    query = User.query.filter(User.id != current_user.id, User.is_active == True)
+    
+    # Apply search filter
+    if search:
+        query = query.filter(User.username.ilike(f'%{search}%'))
+    
+    # Apply sorting filters
+    if filter_by == 'new':
+        query = query.order_by(User.created_at.desc())
+    elif filter_by == 'top_achievers':
+        # Order by users with most custom achievements
+        query = query.outerjoin(CustomAchievement).group_by(User.id)\
+            .order_by(db.func.count(CustomAchievement.id).desc())
+    else:  # active
+        query = query.order_by(User.updated_at.desc())
+    
+    # Paginate results
+    page = request.args.get('page', 1, type=int)
+    users = query.paginate(page=page, per_page=20, error_out=False)
+    
+    # Get friendship status for each user
+    user_friendships = {}
+    friend_counts = {}
+    achievement_counts = {}
+    
+    for user in users.items:
+        # Friendship status
+        user_friendships[user.id] = get_friendship_status(current_user.id, user.id)
+        
+        # Friend count
+        friend_counts[user.id] = UserFriendship.query.filter_by(
+            user_id=user.id, status='accepted'
+        ).count()
+        
+        # Achievement count
+        achievement_counts[user.id] = CustomAchievement.query.filter_by(
+            user_id=user.id
+        ).count()
+    
+    return render_template('social/browse_users.html',
+                         users=users,
+                         user_friendships=user_friendships,
+                         friend_counts=friend_counts,
+                         achievement_counts=achievement_counts,
+                         search=search,
+                         filter_by=filter_by)
+
+@app.route('/user/<username>')
+@login_required
+def user_profile(username):
+    """View a user's public profile"""
+    user = User.query.filter_by(username=username).first_or_404()
+    
+    # Get friendship status
+    friendship_status = None
+    mutual_friends = []
+    if user.id != current_user.id:
+        friendship_status = get_friendship_status(current_user.id, user.id)
+        mutual_friends = get_mutual_friends(current_user.id, user.id)
+    
+    # Get user's achievements
+    achievements = CustomAchievement.query.filter_by(user_id=user.id)\
+        .order_by(CustomAchievement.created_at.desc()).limit(12).all()
+    
+    # Get user's collection progress
+    collections = UserCollectionProgress.query.filter_by(user_id=user.id)\
+        .join(AchievementCollection)\
+        .filter(AchievementCollection.is_active == True)\
+        .order_by(UserCollectionProgress.completion_percentage.desc())\
+        .limit(6).all()
+    
+    # Get recent activity
+    recent_activity = get_recent_activities(limit=10, user_id=user.id)
+    
+    # Get friends
+    friends = get_user_friends(user.id, status='accepted')[:12]  # Show first 12 friends
+    
+    # Calculate stats
+    stats = {
+        'total_achievements': CustomAchievement.query.filter_by(user_id=user.id).count(),
+        'shared_achievements': SharedAchievement.query.filter_by(creator_id=user.id).count(),
+        'collections_joined': UserCollectionProgress.query.filter_by(user_id=user.id).count(),
+        'collections_completed': UserCollectionProgress.query.filter_by(
+            user_id=user.id, status='completed'
+        ).count(),
+        'friend_count': len(friends),
+        'join_date': user.created_at
+    }
+    
+    return render_template('social/user_profile.html',
+                         profile_user=user,
+                         friendship_status=friendship_status,
+                         mutual_friends=mutual_friends,
+                         achievements=achievements,
+                         collections=collections,
+                         recent_activity=recent_activity,
+                         friends=friends,
+                         stats=stats,
+                         is_own_profile=(user.id == current_user.id))
+
+@app.route('/friends')
+@login_required
+def friends_list():
+    """View user's friends and friend requests"""
+    # Get accepted friends
+    friends = get_user_friends(current_user.id, status='accepted')
+    
+    # Get pending friend requests (received)
+    pending_requests = UserFriendship.query.filter_by(
+        friend_id=current_user.id,
+        status='pending'
+    ).join(User, UserFriendship.user_id == User.id).all()
+    
+    # Get sent requests (waiting for response)
+    sent_requests = UserFriendship.query.filter_by(
+        user_id=current_user.id,
+        status='pending'
+    ).join(User, UserFriendship.friend_id == User.id).all()
+    
+    return render_template('social/friends.html',
+                         friends=friends,
+                         pending_requests=pending_requests,
+                         sent_requests=sent_requests)
+
+@app.route('/send-friend-request/<int:user_id>', methods=['POST'])
+@login_required
+def send_friend_request(user_id):
+    """Send a friend request to another user"""
+    if user_id == current_user.id:
+        return jsonify({'success': False, 'error': 'Cannot send friend request to yourself'}), 400
+    
+    target_user = User.query.get_or_404(user_id)
+    
+    # Check if friendship already exists
+    existing = UserFriendship.query.filter_by(
+        user_id=current_user.id,
+        friend_id=user_id
+    ).first()
+    
+    if existing:
+        if existing.status == 'accepted':
+            return jsonify({'success': False, 'error': 'Already friends'}), 400
+        elif existing.status == 'pending':
+            return jsonify({'success': False, 'error': 'Friend request already sent'}), 400
+        elif existing.status == 'blocked':
+            return jsonify({'success': False, 'error': 'Cannot send friend request'}), 400
+    
+    try:
+        # Create friend request
+        friendship = UserFriendship(
+            user_id=current_user.id,
+            friend_id=user_id,
+            initiated_by=current_user.id,
+            request_message=request.json.get('message', '') if request.json else ''
+        )
+        
+        db.session.add(friendship)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Friend request sent to {target_user.username}'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/accept-friend-request/<int:friendship_id>', methods=['POST'])
+@login_required
+def accept_friend_request(friendship_id):
+    """Accept a friend request"""
+    friendship = UserFriendship.query.filter_by(
+        id=friendship_id,
+        friend_id=current_user.id,
+        status='pending'
+    ).first_or_404()
+    
+    try:
+        friendship.accept_friendship()
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'You are now friends with {friendship.user.username}!'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/decline-friend-request/<int:friendship_id>', methods=['POST'])
+@login_required
+def decline_friend_request(friendship_id):
+    """Decline a friend request"""
+    friendship = UserFriendship.query.filter_by(
+        id=friendship_id,
+        friend_id=current_user.id,
+        status='pending'
+    ).first_or_404()
+    
+    try:
+        db.session.delete(friendship)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Friend request declined'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/remove-friend/<int:user_id>', methods=['POST'])
+@login_required
+def remove_friend(user_id):
+    """Remove a friend"""
+    # Find both friendship records
+    friendship1 = UserFriendship.query.filter_by(
+        user_id=current_user.id,
+        friend_id=user_id,
+        status='accepted'
+    ).first()
+    
+    friendship2 = UserFriendship.query.filter_by(
+        user_id=user_id,
+        friend_id=current_user.id,
+        status='accepted'
+    ).first()
+    
+    if not friendship1 and not friendship2:
+        return jsonify({'success': False, 'error': 'Friendship not found'}), 404
+    
+    try:
+        if friendship1:
+            db.session.delete(friendship1)
+        if friendship2:
+            db.session.delete(friendship2)
+        
+        db.session.commit()
+        
+        user = User.query.get(user_id)
+        return jsonify({
+            'success': True,
+            'message': f'Removed {user.username} from friends'
         })
         
     except Exception as e:

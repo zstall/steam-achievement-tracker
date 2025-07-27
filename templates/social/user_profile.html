@@ -1,0 +1,405 @@
+{% extends "base.html" %}
+
+{% block title %}{{ profile_user.username }} - User Profile{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h1>
+                <i class="fas fa-user-circle"></i> {{ profile_user.username }}
+                {% if is_own_profile %}
+                    <span class="badge bg-primary ms-2">You</span>
+                {% endif %}
+            </h1>
+            <div>
+                {% if not is_own_profile %}
+                    {% if friendship_status == 'accepted' %}
+                        <button class="btn btn-success btn-sm me-2" disabled>
+                            <i class="fas fa-check"></i> Friends
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm" onclick="removeFriend({{ profile_user.id }})">
+                            <i class="fas fa-user-minus"></i> Remove Friend
+                        </button>
+                    {% elif friendship_status == 'pending' %}
+                        <button class="btn btn-warning btn-sm" disabled>
+                            <i class="fas fa-clock"></i> Request Sent
+                        </button>
+                    {% elif friendship_status == 'blocked' %}
+                        <button class="btn btn-secondary btn-sm" disabled>
+                            <i class="fas fa-ban"></i> Blocked
+                        </button>
+                    {% else %}
+                        <button class="btn btn-primary btn-sm" onclick="sendFriendRequest({{ profile_user.id }})">
+                            <i class="fas fa-user-plus"></i> Add Friend
+                        </button>
+                    {% endif %}
+                {% endif %}
+                <a href="{{ url_for('browse_users') }}" class="btn btn-outline-secondary btn-sm">
+                    <i class="fas fa-arrow-left"></i> Back to Users
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            {% set alert_class = 'alert-info' %}
+            {% if category == 'success' %}
+                {% set alert_class = 'alert-success' %}
+            {% elif category == 'error' %}
+                {% set alert_class = 'alert-danger' %}
+            {% elif category == 'warning' %}
+                {% set alert_class = 'alert-warning' %}
+            {% endif %}
+            <div class="alert {{ alert_class }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+<!-- Profile Header -->
+<div class="row mb-4">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-chart-bar"></i> Profile Stats</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-3">
+                        <div class="h3 mb-0 text-primary">{{ stats.total_achievements }}</div>
+                        <small class="text-muted">Total Achievements</small>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="h3 mb-0 text-success">{{ stats.shared_achievements }}</div>
+                        <small class="text-muted">Shared with Community</small>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="h3 mb-0 text-warning">{{ stats.collections_completed }}</div>
+                        <small class="text-muted">Collections Completed</small>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="h3 mb-0 text-info">{{ stats.friend_count }}</div>
+                        <small class="text-muted">Friends</small>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Member since:</strong> {{ stats.join_date.strftime('%B %Y') }}</p>
+                        <p><strong>Collections joined:</strong> {{ stats.collections_joined }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        {% if profile_user.steam_id %}
+                            <p><strong>Steam ID:</strong> {{ profile_user.steam_id }}</p>
+                        {% endif %}
+                        {% if profile_user.is_verified %}
+                            <p><strong>Email:</strong> <span class="text-success"><i class="fas fa-check-circle"></i> Verified</span></p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        {% if mutual_friends %}
+        <div class="card">
+            <div class="card-header">
+                <h6><i class="fas fa-users"></i> Mutual Friends ({{ mutual_friends|length }})</h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for friend in mutual_friends[:6] %}
+                    <div class="col-4 mb-2">
+                        <a href="{{ url_for('user_profile', username=friend.username) }}" class="text-decoration-none">
+                            <div class="text-center">
+                                <i class="fas fa-user-circle fa-2x text-info"></i>
+                                <div class="small">{{ friend.username }}</div>
+                            </div>
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% if mutual_friends|length > 6 %}
+                <div class="text-center">
+                    <small class="text-muted">+{{ mutual_friends|length - 6 }} more</small>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Recent Achievements -->
+{% if achievements %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-trophy"></i> Recent Achievements</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for achievement in achievements %}
+                    <div class="col-lg-4 col-md-6 mb-3">
+                        <div class="card bg-dark border-secondary">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center">
+                                    {% if achievement.image_filename %}
+                                        <img src="{{ get_achievement_image_url(achievement.image_filename) }}" 
+                                             class="achievement-card-image me-3" 
+                                             alt="{{ achievement.name }}">
+                                    {% else %}
+                                        <div class="achievement-trophy-placeholder me-3">
+                                            <i class="fas fa-trophy fa-2x text-warning"></i>
+                                        </div>
+                                    {% endif %}
+                                    <div class="flex-grow-1">
+                                        <h6 class="mb-1">{{ achievement.name }}</h6>
+                                        <small class="text-muted">{{ achievement.created_at.strftime('%b %d, %Y') }}</small>
+                                        {% if achievement.original_creator_username %}
+                                            <br><small class="text-info">by {{ achievement.original_creator_username }}</small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                {% if is_own_profile %}
+                <div class="text-center mt-3">
+                    <a href="{{ url_for('custom_achievements') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-eye"></i> View All Achievements
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Collection Progress -->
+{% if collections %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-folder-open"></i> Collection Progress</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for progress in collections %}
+                    <div class="col-lg-6 col-md-12 mb-3">
+                        <div class="card bg-dark border-{{ progress.collection.color_theme }}">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <h6 class="mb-0">{{ progress.collection.name }}</h6>
+                                    <span class="badge bg-{{ progress.collection.color_theme }}">
+                                        {{ progress.completion_percentage }}%
+                                    </span>
+                                </div>
+                                
+                                <div class="progress mb-2" style="height: 8px;">
+                                    <div class="progress-bar bg-{{ progress.collection.color_theme }}" 
+                                         role="progressbar" 
+                                         style="width: {{ progress.completion_percentage }}%;">
+                                    </div>
+                                </div>
+                                
+                                <div class="d-flex justify-content-between">
+                                    <small class="text-muted">
+                                        {{ progress.achievements_completed }}/{{ progress.total_achievements }} completed
+                                    </small>
+                                    {% if progress.is_completed %}
+                                        <small class="text-success">
+                                            <i class="fas fa-check-circle"></i> Completed!
+                                        </small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <div class="text-center mt-3">
+                    <a href="{{ url_for('collections') }}" class="btn btn-outline-success">
+                        <i class="fas fa-folder"></i> View All Collections
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Friends -->
+{% if friends %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-users"></i> Friends ({{ stats.friend_count }})</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for friendship in friends %}
+                    <div class="col-lg-2 col-md-3 col-4 mb-3">
+                        <a href="{{ url_for('user_profile', username=friendship.friend.username) }}" class="text-decoration-none">
+                            <div class="text-center">
+                                <i class="fas fa-user-circle fa-3x text-info mb-2"></i>
+                                <div class="small">{{ friendship.friend.username }}</div>
+                                <div class="text-muted" style="font-size: 0.7rem;">
+                                    Friends since {{ friendship.accepted_at.strftime('%b %Y') if friendship.accepted_at else 'Unknown' }}
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                {% if stats.friend_count > 12 %}
+                <div class="text-center mt-3">
+                    <button class="btn btn-outline-info" onclick="showAllFriends()">
+                        <i class="fas fa-eye"></i> Show All {{ stats.friend_count }} Friends
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Recent Activity -->
+{% if recent_activity %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-feed"></i> Recent Activity</h5>
+            </div>
+            <div class="card-body">
+                {% for activity in recent_activity %}
+                <div class="d-flex align-items-center mb-3 pb-3 border-bottom">
+                    <div class="me-3">
+                        {{ activity.icon }}
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="fw-bold">{{ activity.title }}</div>
+                        {% if activity.description %}
+                            <div class="text-muted small">{{ activity.description }}</div>
+                        {% endif %}
+                        <div class="text-muted small">{{ activity.time_ago }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+                
+                <div class="text-center">
+                    <a href="{{ url_for('trophy_feed', user=profile_user.username) }}" class="btn btn-outline-warning">
+                        <i class="fas fa-trophy"></i> View Full Activity Feed
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+function sendFriendRequest(userId) {
+    if (!confirm('Send a friend request to this user?')) {
+        return;
+    }
+    
+    fetch(`/send-friend-request/${userId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message, 'success');
+            // Update button to show request sent
+            location.reload();
+        } else {
+            showNotification(data.error || 'Failed to send friend request', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Network error occurred', 'error');
+    });
+}
+
+function removeFriend(userId) {
+    if (!confirm('Remove this user from your friends?')) {
+        return;
+    }
+    
+    fetch(`/remove-friend/${userId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message, 'success');
+            location.reload();
+        } else {
+            showNotification(data.error || 'Failed to remove friend', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Network error occurred', 'error');
+    });
+}
+
+function showNotification(message, type = 'info') {
+    // Create notification container if it doesn't exist
+    let container = document.getElementById('notificationContainer');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'notificationContainer';
+        container.className = 'position-fixed top-0 end-0 p-3';
+        container.style.zIndex = '9999';
+        document.body.appendChild(container);
+    }
+    
+    // Create notification
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type === 'error' ? 'danger' : 'success'} alert-dismissible fade show`;
+    notification.innerHTML = `
+        <i class="fas fa-${type === 'error' ? 'exclamation-triangle' : 'check-circle'}"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    container.appendChild(notification);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}

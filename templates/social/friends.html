@@ -1,0 +1,476 @@
+{% extends "base.html" %}
+
+{% block title %}My Friends - Steam Achievement Tracker{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h1><i class="fas fa-user-friends"></i> My Friends</h1>
+            <div>
+                <a href="{{ url_for('browse_users') }}" class="btn btn-outline-primary me-2">
+                    <i class="fas fa-search"></i> Find Friends
+                </a>
+                <div class="btn-group" role="group">
+                    <input type="radio" class="btn-check" name="friendView" id="friendsView" autocomplete="off" checked>
+                    <label class="btn btn-outline-info" for="friendsView">Friends</label>
+                    
+                    <input type="radio" class="btn-check" name="friendView" id="requestsView" autocomplete="off">
+                    <label class="btn btn-outline-warning" for="requestsView">
+                        Requests
+                        {% if pending_requests and pending_requests|length > 0 %}
+                            <span class="badge bg-warning text-dark ms-1">{{ pending_requests|length }}</span>
+                        {% endif %}
+                    </label>
+                </div>
+            </div>
+        </div>
+        <p class="text-muted">Manage your friends and friend requests</p>
+    </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            {% set alert_class = 'alert-info' %}
+            {% if category == 'success' %}
+                {% set alert_class = 'alert-success' %}
+            {% elif category == 'error' %}
+                {% set alert_class = 'alert-danger' %}
+            {% elif category == 'warning' %}
+                {% set alert_class = 'alert-warning' %}
+            {% endif %}
+            <div class="alert {{ alert_class }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+<!-- Friends List -->
+<div id="friendsSection">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5><i class="fas fa-users"></i> Friends {{ '(' + friends|length|string + ')' if friends else '' }}</h5>
+                    {% if friends %}
+                        <div class="input-group" style="width: 300px;">
+                            <input type="text" class="form-control form-control-sm" id="friendSearch" 
+                                   placeholder="Search friends...">
+                            <button class="btn btn-outline-secondary btn-sm" type="button">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    {% if friends %}
+                        <div class="row" id="friendsList">
+                            {% for friendship in friends %}
+                            <div class="col-lg-4 col-md-6 mb-4 friend-card" data-username="{{ friendship.friend.username }}">
+                                <div class="card bg-dark border-secondary h-100">
+                                    <div class="card-body">
+                                        <div class="d-flex align-items-center mb-3">
+                                            <i class="fas fa-user-circle fa-3x text-success me-3"></i>
+                                            <div class="flex-grow-1">
+                                                <h6 class="mb-1">
+                                                    <a href="{{ url_for('user_profile', username=friendship.friend.username) }}" 
+                                                       class="text-decoration-none">
+                                                        {{ friendship.friend.username }}
+                                                    </a>
+                                                    {% if friendship.friend.is_verified %}
+                                                        <i class="fas fa-check-circle text-success ms-1" title="Verified"></i>
+                                                    {% endif %}
+                                                </h6>
+                                                <small class="text-muted">
+                                                    Friends since {{ friendship.accepted_at.strftime('%b %Y') if friendship.accepted_at else 'Unknown' }}
+                                                </small>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Friend Stats -->
+                                        <div class="row text-center mb-3">
+                                            <div class="col-6">
+                                                <div class="text-warning fw-bold">{{ friendship.friend.user_stats.total_achievements if friendship.friend.user_stats else 0 }}</div>
+                                                <small class="text-muted">Achievements</small>
+                                            </div>
+                                            <div class="col-6">
+                                                <div class="text-success fw-bold">{{ friendship.friend.user_stats.collections_completed if friendship.friend.user_stats else 0 }}</div>
+                                                <small class="text-muted">Collections</small>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Recent Activity -->
+                                        {% if friendship.friend.recent_achievement %}
+                                            <div class="mb-3">
+                                                <small class="text-muted d-block">Recent achievement:</small>
+                                                <div class="d-flex align-items-center">
+                                                    {% if friendship.friend.recent_achievement.image_filename %}
+                                                        <img src="{{ get_achievement_image_url(friendship.friend.recent_achievement.image_filename) }}" 
+                                                             class="achievement-card-image me-2" 
+                                                             alt="{{ friendship.friend.recent_achievement.name }}">
+                                                    {% else %}
+                                                        <i class="fas fa-trophy text-warning me-2"></i>
+                                                    {% endif %}
+                                                    <div>
+                                                        <div class="small fw-bold">{{ friendship.friend.recent_achievement.name }}</div>
+                                                        <small class="text-muted">{{ friendship.friend.recent_achievement.created_at.strftime('%b %d') }}</small>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        {% endif %}
+                                        
+                                        <!-- Action Buttons -->
+                                        <div class="d-flex gap-2 mt-auto">
+                                            <a href="{{ url_for('user_profile', username=friendship.friend.username) }}" 
+                                               class="btn btn-outline-info btn-sm flex-grow-1">
+                                                <i class="fas fa-eye"></i> View Profile
+                                            </a>
+                                            <button class="btn btn-outline-danger btn-sm" 
+                                                    onclick="removeFriend({{ friendship.friend.id }}, '{{ friendship.friend.username }}')">
+                                                <i class="fas fa-user-minus"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-user-friends fa-3x text-muted mb-3"></i>
+                            <h4 class="text-muted">No friends yet</h4>
+                            <p class="text-muted">Start building your network by finding and adding friends!</p>
+                            <a href="{{ url_for('browse_users') }}" class="btn btn-primary">
+                                <i class="fas fa-search"></i> Find Friends
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Friend Requests Section -->
+<div id="requestsSection" style="display: none;">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-envelope"></i> Pending Friend Requests</h5>
+                </div>
+                <div class="card-body">
+                    {% if pending_requests %}
+                        <div class="row">
+                            {% for request in pending_requests %}
+                            <div class="col-lg-6 col-md-12 mb-3">
+                                <div class="card bg-dark border-warning">
+                                    <div class="card-body">
+                                        <div class="d-flex align-items-center justify-content-between">
+                                            <div class="d-flex align-items-center">
+                                                <i class="fas fa-user-circle fa-2x text-warning me-3"></i>
+                                                <div>
+                                                    <h6 class="mb-1">
+                                                        <a href="{{ url_for('user_profile', username=request.user.username) }}" 
+                                                           class="text-decoration-none">
+                                                            {{ request.user.username }}
+                                                        </a>
+                                                    </h6>
+                                                    <small class="text-muted">
+                                                        Sent {{ request.created_at.strftime('%b %d, %Y') }}
+                                                    </small>
+                                                    {% if request.user.user_stats %}
+                                                        <br><small class="text-info">
+                                                            {{ request.user.user_stats.total_achievements }} achievements
+                                                        </small>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            <div class="d-flex gap-2">
+                                                <button class="btn btn-success btn-sm" 
+                                                        onclick="acceptFriendRequest({{ request.id }}, '{{ request.user.username }}')">
+                                                    <i class="fas fa-check"></i>
+                                                </button>
+                                                <button class="btn btn-danger btn-sm" 
+                                                        onclick="rejectFriendRequest({{ request.id }}, '{{ request.user.username }}')">
+                                                    <i class="fas fa-times"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-inbox fa-2x text-muted mb-3"></i>
+                            <h5 class="text-muted">No pending requests</h5>
+                            <p class="text-muted">You're all caught up! No friend requests waiting for your response.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sent Requests -->
+    {% if sent_requests %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-paper-plane"></i> Sent Requests</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for request in sent_requests %}
+                        <div class="col-lg-6 col-md-12 mb-3">
+                            <div class="card bg-dark border-info">
+                                <div class="card-body">
+                                    <div class="d-flex align-items-center justify-content-between">
+                                        <div class="d-flex align-items-center">
+                                            <i class="fas fa-user-circle fa-2x text-info me-3"></i>
+                                            <div>
+                                                <h6 class="mb-1">
+                                                    <a href="{{ url_for('user_profile', username=request.friend.username) }}" 
+                                                       class="text-decoration-none">
+                                                        {{ request.friend.username }}
+                                                    </a>
+                                                </h6>
+                                                <small class="text-muted">
+                                                    Sent {{ request.created_at.strftime('%b %d, %Y') }}
+                                                </small>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <button class="btn btn-outline-secondary btn-sm" 
+                                                    onclick="cancelFriendRequest({{ request.id }}, '{{ request.friend.username }}')">
+                                                <i class="fas fa-times"></i> Cancel
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Friends Stats -->
+{% if friends_stats %}
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-chart-line"></i> Your Network</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-3">
+                        <div class="h3 mb-0 text-success">{{ friends_stats.total_friends }}</div>
+                        <small class="text-muted">Total Friends</small>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="h3 mb-0 text-warning">{{ friends_stats.mutual_connections }}</div>
+                        <small class="text-muted">Mutual Connections</small>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="h3 mb-0 text-info">{{ friends_stats.recent_activity }}</div>
+                        <small class="text-muted">Active This Week</small>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="h3 mb-0 text-primary">{{ friends_stats.shared_collections }}</div>
+                        <small class="text-muted">Shared Collections</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+// Tab switching functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const friendsViewBtn = document.getElementById('friendsView');
+    const requestsViewBtn = document.getElementById('requestsView');
+    const friendsSection = document.getElementById('friendsSection');
+    const requestsSection = document.getElementById('requestsSection');
+    
+    friendsViewBtn.addEventListener('change', function() {
+        if (this.checked) {
+            friendsSection.style.display = 'block';
+            requestsSection.style.display = 'none';
+        }
+    });
+    
+    requestsViewBtn.addEventListener('change', function() {
+        if (this.checked) {
+            friendsSection.style.display = 'none';
+            requestsSection.style.display = 'block';
+        }
+    });
+    
+    // Friend search functionality
+    const friendSearch = document.getElementById('friendSearch');
+    if (friendSearch) {
+        friendSearch.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            const friendCards = document.querySelectorAll('.friend-card');
+            
+            friendCards.forEach(card => {
+                const username = card.dataset.username.toLowerCase();
+                if (username.includes(searchTerm)) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        });
+    }
+});
+
+function acceptFriendRequest(requestId, username) {
+    if (!confirm(`Accept friend request from ${username}?`)) {
+        return;
+    }
+    
+    fetch(`/accept-friend-request/${requestId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message, 'success');
+            location.reload();
+        } else {
+            showNotification(data.error || 'Failed to accept friend request', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Network error occurred', 'error');
+    });
+}
+
+function rejectFriendRequest(requestId, username) {
+    if (!confirm(`Reject friend request from ${username}?`)) {
+        return;
+    }
+    
+    fetch(`/reject-friend-request/${requestId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message, 'success');
+            location.reload();
+        } else {
+            showNotification(data.error || 'Failed to reject friend request', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Network error occurred', 'error');
+    });
+}
+
+function cancelFriendRequest(requestId, username) {
+    if (!confirm(`Cancel friend request to ${username}?`)) {
+        return;
+    }
+    
+    fetch(`/cancel-friend-request/${requestId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message, 'success');
+            location.reload();
+        } else {
+            showNotification(data.error || 'Failed to cancel friend request', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Network error occurred', 'error');
+    });
+}
+
+function removeFriend(userId, username) {
+    if (!confirm(`Remove ${username} from your friends?`)) {
+        return;
+    }
+    
+    fetch(`/remove-friend/${userId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message, 'success');
+            location.reload();
+        } else {
+            showNotification(data.error || 'Failed to remove friend', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Network error occurred', 'error');
+    });
+}
+
+function showNotification(message, type = 'info') {
+    // Create notification container if it doesn't exist
+    let container = document.getElementById('notificationContainer');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'notificationContainer';
+        container.className = 'position-fixed top-0 end-0 p-3';
+        container.style.zIndex = '9999';
+        document.body.appendChild(container);
+    }
+    
+    // Create notification
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type === 'error' ? 'danger' : 'success'} alert-dismissible fade show`;
+    notification.innerHTML = `
+        <i class="fas fa-${type === 'error' ? 'exclamation-triangle' : 'check-circle'}"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    container.appendChild(notification);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}
