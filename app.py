@@ -19,7 +19,7 @@ from collections import defaultdict
 
 # Import our models and configuration
 from config import config
-from models import db, User, Game, UserGame, SteamAchievement, CustomAchievement, SharedAchievement, AchievementImage, ActivityFeed, EmailVerificationToken, PasswordResetToken, get_or_create_game, log_activity, get_recent_activities
+from models import db, User, Game, UserGame, SteamAchievement, CustomAchievement, SharedAchievement, AchievementImage, ActivityFeed, EmailVerificationToken, PasswordResetToken, AchievementCollection, CollectionItem, UserCollectionProgress, get_or_create_game, log_activity, get_recent_activities
 from s3_manager import s3_manager
 from email_service import email_service
 
@@ -1621,6 +1621,440 @@ def admin_create_email_tables():
             'success': False,
             'message': f'❌ Error creating email tables: {str(e)}'
         }), 500
+
+
+# ========================================
+# ADMIN COLLECTION MANAGEMENT ROUTES
+# ========================================
+
+@app.route('/admin/collections')
+@login_required
+def admin_collections():
+    """Admin page for managing achievement collections"""
+    if current_user.username != 'admin':
+        flash('Access denied. Admin privileges required.', 'error')
+        return redirect(url_for('index'))
+    
+    # Get all collections with statistics
+    collections = AchievementCollection.query.order_by(
+        AchievementCollection.is_featured.desc(),
+        AchievementCollection.created_at.desc()
+    ).all()
+    
+    # Get collection statistics
+    total_collections = len(collections)
+    active_collections = len([c for c in collections if c.is_currently_active])
+    featured_collections = len([c for c in collections if c.is_featured])
+    total_participants = sum(c.participants_count for c in collections)
+    
+    stats = {
+        'total_collections': total_collections,
+        'active_collections': active_collections,
+        'featured_collections': featured_collections,
+        'total_participants': total_participants
+    }
+    
+    return render_template('admin/collections.html', 
+                         collections=collections, 
+                         stats=stats)
+
+@app.route('/admin/collections/create', methods=['GET', 'POST'])
+@login_required
+def admin_create_collection():
+    """Admin route to create new achievement collection"""
+    if current_user.username != 'admin':
+        flash('Access denied. Admin privileges required.', 'error')
+        return redirect(url_for('index'))
+    
+    if request.method == 'POST':
+        try:
+            # Get form data
+            name = request.form.get('name', '').strip()
+            description = request.form.get('description', '').strip()
+            collection_type = request.form.get('collection_type', 'seasonal')
+            difficulty_level = request.form.get('difficulty_level', 'medium')
+            estimated_time = request.form.get('estimated_time', '').strip()
+            color_theme = request.form.get('color_theme', 'primary')
+            is_featured = request.form.get('is_featured') == 'on'
+            
+            # Handle dates
+            start_date = None
+            end_date = None
+            if request.form.get('start_date'):
+                start_date = datetime.strptime(request.form.get('start_date'), '%Y-%m-%d')
+            if request.form.get('end_date'):
+                end_date = datetime.strptime(request.form.get('end_date'), '%Y-%m-%d')
+            
+            # Validation
+            if not name or not description:
+                flash('Name and description are required.', 'error')
+                return redirect(request.url)
+            
+            # Create collection
+            collection = AchievementCollection(
+                name=name,
+                description=description,
+                collection_type=collection_type,
+                difficulty_level=difficulty_level,
+                estimated_time=estimated_time if estimated_time else None,
+                color_theme=color_theme,
+                is_featured=is_featured,
+                start_date=start_date,
+                end_date=end_date,
+                created_by=current_user.id
+            )
+            
+            db.session.add(collection)
+            db.session.commit()
+            
+            flash(f'Collection "{name}" created successfully!', 'success')
+            return redirect(url_for('admin_collections'))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error creating collection: {str(e)}', 'error')
+            return redirect(request.url)
+    
+    # GET request - show form
+    return render_template('admin/create_collection.html')
+
+@app.route('/admin/collections/<int:collection_id>/edit', methods=['GET', 'POST'])
+@login_required
+def admin_edit_collection(collection_id):
+    """Admin route to edit achievement collection"""
+    if current_user.username != 'admin':
+        flash('Access denied. Admin privileges required.', 'error')
+        return redirect(url_for('index'))
+    
+    collection = AchievementCollection.query.get_or_404(collection_id)
+    
+    if request.method == 'POST':
+        try:
+            # Update collection data
+            collection.name = request.form.get('name', '').strip()
+            collection.description = request.form.get('description', '').strip()
+            collection.collection_type = request.form.get('collection_type', 'seasonal')
+            collection.difficulty_level = request.form.get('difficulty_level', 'medium')
+            collection.estimated_time = request.form.get('estimated_time', '').strip() or None
+            collection.color_theme = request.form.get('color_theme', 'primary')
+            collection.is_active = request.form.get('is_active') == 'on'
+            collection.is_featured = request.form.get('is_featured') == 'on'
+            
+            # Handle dates
+            if request.form.get('start_date'):
+                collection.start_date = datetime.strptime(request.form.get('start_date'), '%Y-%m-%d')
+            else:
+                collection.start_date = None
+                
+            if request.form.get('end_date'):
+                collection.end_date = datetime.strptime(request.form.get('end_date'), '%Y-%m-%d')
+            else:
+                collection.end_date = None
+            
+            collection.updated_at = datetime.utcnow()
+            
+            # Validation
+            if not collection.name or not collection.description:
+                flash('Name and description are required.', 'error')
+                return redirect(request.url)
+            
+            db.session.commit()
+            flash(f'Collection "{collection.name}" updated successfully!', 'success')
+            return redirect(url_for('admin_collections'))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error updating collection: {str(e)}', 'error')
+            return redirect(request.url)
+    
+    # GET request - show edit form
+    return render_template('admin/edit_collection.html', collection=collection)
+
+@app.route('/admin/collections/<int:collection_id>/manage')
+@login_required
+def admin_manage_collection(collection_id):
+    """Admin route to manage collection items and participants"""
+    if current_user.username != 'admin':
+        flash('Access denied. Admin privileges required.', 'error')
+        return redirect(url_for('index'))
+    
+    collection = AchievementCollection.query.get_or_404(collection_id)
+    
+    # Get collection items with achievements
+    items = CollectionItem.query.filter_by(collection_id=collection_id)\
+        .join(SharedAchievement)\
+        .order_by(CollectionItem.order_index).all()
+    
+    # Get user progress
+    progress_records = UserCollectionProgress.query.filter_by(collection_id=collection_id)\
+        .join(User)\
+        .order_by(UserCollectionProgress.completion_percentage.desc()).all()
+    
+    # Get available shared achievements not in this collection
+    existing_achievement_ids = [item.shared_achievement_id for item in items]
+    available_achievements = SharedAchievement.query.filter(
+        ~SharedAchievement.id.in_(existing_achievement_ids),
+        SharedAchievement.is_active == True
+    ).order_by(SharedAchievement.name).all()
+    
+    return render_template('admin/manage_collection.html',
+                         collection=collection,
+                         items=items,
+                         progress_records=progress_records,
+                         available_achievements=available_achievements)
+
+@app.route('/admin/collections/<int:collection_id>/add-achievement', methods=['POST'])
+@login_required
+def admin_add_achievement_to_collection(collection_id):
+    """Admin route to add achievement to collection"""
+    if current_user.username != 'admin':
+        return jsonify({'success': False, 'error': 'Access denied'}), 403
+    
+    try:
+        collection = AchievementCollection.query.get_or_404(collection_id)
+        shared_achievement_id = request.json.get('shared_achievement_id')
+        point_value = request.json.get('point_value', 10)
+        is_required = request.json.get('is_required', True)
+        
+        if not shared_achievement_id:
+            return jsonify({'success': False, 'error': 'Achievement ID required'}), 400
+        
+        # Check if achievement already in collection
+        existing = CollectionItem.query.filter_by(
+            collection_id=collection_id,
+            shared_achievement_id=shared_achievement_id
+        ).first()
+        
+        if existing:
+            return jsonify({'success': False, 'error': 'Achievement already in collection'}), 400
+        
+        # Get next order index
+        max_order = db.session.query(db.func.max(CollectionItem.order_index))\
+            .filter_by(collection_id=collection_id).scalar() or 0
+        
+        # Create collection item
+        item = CollectionItem(
+            collection_id=collection_id,
+            shared_achievement_id=shared_achievement_id,
+            order_index=max_order + 1,
+            point_value=point_value,
+            is_required=is_required,
+            added_by=current_user.id
+        )
+        
+        db.session.add(item)
+        
+        # Update user progress for all participants
+        progress_records = UserCollectionProgress.query.filter_by(collection_id=collection_id).all()
+        for progress in progress_records:
+            progress.update_progress()
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Achievement added to collection successfully'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/admin/collections/<int:collection_id>/remove-achievement/<int:item_id>', methods=['POST'])
+@login_required
+def admin_remove_achievement_from_collection(collection_id, item_id):
+    """Admin route to remove achievement from collection"""
+    if current_user.username != 'admin':
+        return jsonify({'success': False, 'error': 'Access denied'}), 403
+    
+    try:
+        item = CollectionItem.query.filter_by(
+            id=item_id,
+            collection_id=collection_id
+        ).first_or_404()
+        
+        db.session.delete(item)
+        
+        # Update user progress for all participants
+        progress_records = UserCollectionProgress.query.filter_by(collection_id=collection_id).all()
+        for progress in progress_records:
+            progress.update_progress()
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Achievement removed from collection successfully'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/admin/collections/<int:collection_id>/delete', methods=['POST'])
+@login_required
+def admin_delete_collection(collection_id):
+    """Admin route to delete achievement collection"""
+    if current_user.username != 'admin':
+        return jsonify({'success': False, 'error': 'Access denied'}), 403
+    
+    try:
+        collection = AchievementCollection.query.get_or_404(collection_id)
+        collection_name = collection.name
+        
+        # Delete collection (cascades to items and progress)
+        db.session.delete(collection)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Collection "{collection_name}" deleted successfully'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ========================================
+# USER COLLECTION ROUTES
+# ========================================
+
+@app.route('/collections')
+@login_required
+def collections():
+    """User page to view and participate in achievement collections"""
+    # Get active collections for users
+    now = datetime.utcnow()
+    active_collections = AchievementCollection.query.filter(
+        AchievementCollection.is_active == True,
+        db.or_(
+            AchievementCollection.start_date.is_(None),
+            AchievementCollection.start_date <= now
+        ),
+        db.or_(
+            AchievementCollection.end_date.is_(None),
+            AchievementCollection.end_date >= now
+        )
+    ).order_by(
+        AchievementCollection.is_featured.desc(),
+        AchievementCollection.created_at.desc()
+    ).all()
+    
+    # Get user's progress for each collection
+    user_progress = {}
+    for collection in active_collections:
+        progress = UserCollectionProgress.query.filter_by(
+            user_id=current_user.id,
+            collection_id=collection.id
+        ).first()
+        user_progress[collection.id] = progress
+    
+    # Get featured collections
+    featured_collections = [c for c in active_collections if c.is_featured]
+    
+    return render_template('collections.html',
+                         collections=active_collections,
+                         featured_collections=featured_collections,
+                         user_progress=user_progress)
+
+@app.route('/collections/<int:collection_id>')
+@login_required
+def view_collection(collection_id):
+    """View detailed collection page with achievements and progress"""
+    collection = AchievementCollection.query.get_or_404(collection_id)
+    
+    if not collection.is_currently_active:
+        flash('This collection is not currently active.', 'warning')
+        return redirect(url_for('collections'))
+    
+    # Get collection items
+    items = CollectionItem.query.filter_by(collection_id=collection_id)\
+        .join(SharedAchievement)\
+        .order_by(CollectionItem.order_index).all()
+    
+    # Get or create user progress
+    user_progress = UserCollectionProgress.query.filter_by(
+        user_id=current_user.id,
+        collection_id=collection_id
+    ).first()
+    
+    if not user_progress:
+        user_progress = UserCollectionProgress(
+            user_id=current_user.id,
+            collection_id=collection_id
+        )
+        db.session.add(user_progress)
+        
+        # Update participant count
+        collection.participants_count += 1
+        db.session.commit()
+    
+    # Update progress
+    user_progress.update_progress()
+    
+    # Update view count
+    collection.views_count += 1
+    db.session.commit()
+    
+    # Check which achievements user has completed
+    user_achievements = {}
+    for item in items:
+        user_custom = CustomAchievement.query.filter_by(
+            user_id=current_user.id,
+            imported_from_shared_id=item.shared_achievement_id
+        ).first()
+        user_achievements[item.shared_achievement_id] = user_custom
+    
+    return render_template('collection_detail.html',
+                         collection=collection,
+                         items=items,
+                         user_progress=user_progress,
+                         user_achievements=user_achievements)
+
+@app.route('/collections/<int:collection_id>/join', methods=['POST'])
+@login_required
+def join_collection(collection_id):
+    """Join a collection and start tracking progress"""
+    collection = AchievementCollection.query.get_or_404(collection_id)
+    
+    if not collection.is_currently_active:
+        return jsonify({'success': False, 'error': 'Collection is not currently active'}), 400
+    
+    try:
+        # Check if user already joined
+        existing_progress = UserCollectionProgress.query.filter_by(
+            user_id=current_user.id,
+            collection_id=collection_id
+        ).first()
+        
+        if existing_progress:
+            return jsonify({'success': False, 'error': 'Already participating in this collection'}), 400
+        
+        # Create progress record
+        user_progress = UserCollectionProgress(
+            user_id=current_user.id,
+            collection_id=collection_id
+        )
+        db.session.add(user_progress)
+        
+        # Update participant count
+        collection.participants_count += 1
+        
+        # Update progress
+        user_progress.update_progress()
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Successfully joined "{collection.name}"!'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

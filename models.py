@@ -565,3 +565,288 @@ class PasswordResetToken(db.Model):
         self.used_at = datetime.utcnow()
 
 
+class AchievementCollection(db.Model):
+    """Curated collections of achievements for themed campaigns"""
+    __tablename__ = 'achievement_collections'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False, index=True)
+    description = db.Column(db.Text, nullable=False)
+    
+    # Collection metadata
+    collection_type = db.Column(db.String(50), nullable=False, default='seasonal')  # 'seasonal', 'featured', 'event', 'challenge'
+    difficulty_level = db.Column(db.String(20), nullable=False, default='medium')  # 'easy', 'medium', 'hard', 'extreme'
+    estimated_time = db.Column(db.String(50), nullable=True)  # '1-2 weeks', '1 month', etc.
+    
+    # Visual branding
+    banner_image = db.Column(db.String(255), nullable=True)
+    icon_image = db.Column(db.String(255), nullable=True)
+    color_theme = db.Column(db.String(20), nullable=True, default='primary')  # Bootstrap color classes
+    
+    # Scheduling and availability
+    is_active = db.Column(db.Boolean, default=True, nullable=False, index=True)
+    is_featured = db.Column(db.Boolean, default=False, nullable=False, index=True)
+    start_date = db.Column(db.DateTime, nullable=True)
+    end_date = db.Column(db.DateTime, nullable=True)
+    
+    # Engagement metrics
+    views_count = db.Column(db.Integer, default=0, nullable=False)
+    participants_count = db.Column(db.Integer, default=0, nullable=False)
+    completions_count = db.Column(db.Integer, default=0, nullable=False)
+    
+    # Administrative
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    
+    # Relationships
+    creator = db.relationship('User', backref='created_collections')
+    items = db.relationship('CollectionItem', backref='collection', lazy='dynamic', cascade='all, delete-orphan')
+    user_progress = db.relationship('UserCollectionProgress', backref='collection', lazy='dynamic', cascade='all, delete-orphan')
+    
+    # Constraints and indexes
+    __table_args__ = (
+        db.Index('idx_collection_active_featured', 'is_active', 'is_featured'),
+        db.Index('idx_collection_type_active', 'collection_type', 'is_active'),
+        db.Index('idx_collection_dates', 'start_date', 'end_date'),
+    )
+    
+    def __repr__(self):
+        return f'<AchievementCollection {self.name}>'
+    
+    @property
+    def is_currently_active(self):
+        """Check if collection is active within its date range"""
+        if not self.is_active:
+            return False
+        
+        now = datetime.utcnow()
+        if self.start_date and now < self.start_date:
+            return False
+        if self.end_date and now > self.end_date:
+            return False
+        return True
+    
+    @property
+    def progress_percentage(self):
+        """Calculate average completion percentage across all participants"""
+        if self.participants_count == 0:
+            return 0
+        
+        total_progress = db.session.query(db.func.avg(UserCollectionProgress.completion_percentage)).filter(
+            UserCollectionProgress.collection_id == self.id
+        ).scalar()
+        
+        return round(total_progress or 0, 1)
+    
+    @property
+    def total_achievements(self):
+        """Get total number of achievements in this collection"""
+        return self.items.count()
+    
+    def get_user_progress(self, user_id):
+        """Get user's progress for this collection"""
+        return UserCollectionProgress.query.filter_by(
+            collection_id=self.id,
+            user_id=user_id
+        ).first()
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'description': self.description,
+            'collection_type': self.collection_type,
+            'difficulty_level': self.difficulty_level,
+            'estimated_time': self.estimated_time,
+            'banner_image': self.banner_image,
+            'icon_image': self.icon_image,
+            'color_theme': self.color_theme,
+            'is_active': self.is_active,
+            'is_featured': self.is_featured,
+            'is_currently_active': self.is_currently_active,
+            'start_date': self.start_date.isoformat() if self.start_date else None,
+            'end_date': self.end_date.isoformat() if self.end_date else None,
+            'views_count': self.views_count,
+            'participants_count': self.participants_count,
+            'completions_count': self.completions_count,
+            'progress_percentage': self.progress_percentage,
+            'total_achievements': self.total_achievements,
+            'creator': self.creator.username,
+            'created_at': self.created_at.isoformat()
+        }
+
+
+class CollectionItem(db.Model):
+    """Individual achievements within a collection"""
+    __tablename__ = 'collection_items'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    collection_id = db.Column(db.Integer, db.ForeignKey('achievement_collections.id'), nullable=False)
+    shared_achievement_id = db.Column(db.Integer, db.ForeignKey('shared_achievements.id'), nullable=False)
+    
+    # Item configuration
+    order_index = db.Column(db.Integer, nullable=False, default=0)  # Order within collection
+    is_required = db.Column(db.Boolean, default=True, nullable=False)  # Required vs optional
+    point_value = db.Column(db.Integer, default=10, nullable=False)  # Points awarded for completion
+    unlock_condition = db.Column(db.String(50), nullable=True)  # 'sequential', 'any', 'after_date', etc.
+    
+    # Item metadata
+    added_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    added_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    
+    # Relationships
+    shared_achievement = db.relationship('SharedAchievement', backref='collection_items')
+    adder = db.relationship('User', backref='added_collection_items')
+    
+    # Constraints
+    __table_args__ = (
+        db.UniqueConstraint('collection_id', 'shared_achievement_id', name='unique_collection_achievement'),
+        db.Index('idx_collection_order', 'collection_id', 'order_index'),
+    )
+    
+    def __repr__(self):
+        return f'<CollectionItem {self.collection.name}:{self.shared_achievement.name}>'
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'collection_id': self.collection_id,
+            'shared_achievement_id': self.shared_achievement_id,
+            'order_index': self.order_index,
+            'is_required': self.is_required,
+            'point_value': self.point_value,
+            'unlock_condition': self.unlock_condition,
+            'achievement': self.shared_achievement.to_dict(),
+            'added_at': self.added_at.isoformat()
+        }
+
+
+class UserCollectionProgress(db.Model):
+    """Track user progress through achievement collections"""
+    __tablename__ = 'user_collection_progress'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    collection_id = db.Column(db.Integer, db.ForeignKey('achievement_collections.id'), nullable=False)
+    
+    # Progress tracking
+    achievements_completed = db.Column(db.Integer, default=0, nullable=False)
+    total_achievements = db.Column(db.Integer, default=0, nullable=False)
+    points_earned = db.Column(db.Integer, default=0, nullable=False)
+    total_points = db.Column(db.Integer, default=0, nullable=False)
+    
+    # Status and timing
+    status = db.Column(db.String(20), default='in_progress', nullable=False)  # 'not_started', 'in_progress', 'completed', 'abandoned'
+    started_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    completed_at = db.Column(db.DateTime, nullable=True)
+    last_activity = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    
+    # Progress metadata stored as JSON
+    progress_data = db.Column(JSON, nullable=True)  # Store specific achievement completion status, unlock dates, etc.
+    
+    # Relationships
+    user = db.relationship('User', backref='collection_progress')
+    
+    # Constraints
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'collection_id', name='unique_user_collection'),
+        db.Index('idx_user_collection_status', 'user_id', 'status'),
+        db.Index('idx_collection_progress', 'collection_id', 'status'),
+    )
+    
+    def __repr__(self):
+        return f'<UserCollectionProgress {self.user.username}:{self.collection.name}>'
+    
+    @property
+    def completion_percentage(self):
+        """Calculate completion percentage"""
+        if self.total_achievements == 0:
+            return 0
+        return round((self.achievements_completed / self.total_achievements) * 100, 1)
+    
+    @property
+    def points_percentage(self):
+        """Calculate points completion percentage"""
+        if self.total_points == 0:
+            return 0
+        return round((self.points_earned / self.total_points) * 100, 1)
+    
+    @property
+    def is_completed(self):
+        """Check if collection is fully completed"""
+        return self.status == 'completed' and self.achievements_completed == self.total_achievements
+    
+    def update_progress(self):
+        """Recalculate progress based on current collection items"""
+        from sqlalchemy import and_
+        
+        # Get all collection items
+        collection_items = CollectionItem.query.filter_by(collection_id=self.collection_id).all()
+        
+        if not collection_items:
+            return
+        
+        # Count total achievements and points
+        self.total_achievements = len(collection_items)
+        self.total_points = sum(item.point_value for item in collection_items)
+        
+        # Count completed achievements
+        completed_count = 0
+        earned_points = 0
+        progress_data = self.progress_data or {}
+        
+        for item in collection_items:
+            # Check if user has imported this shared achievement
+            user_custom_achievement = CustomAchievement.query.filter(
+                and_(
+                    CustomAchievement.user_id == self.user_id,
+                    CustomAchievement.imported_from_shared_id == item.shared_achievement_id
+                )
+            ).first()
+            
+            if user_custom_achievement:
+                completed_count += 1
+                earned_points += item.point_value
+                progress_data[str(item.id)] = {
+                    'completed': True,
+                    'completed_at': user_custom_achievement.created_at.isoformat(),
+                    'points': item.point_value
+                }
+        
+        # Update progress
+        self.achievements_completed = completed_count
+        self.points_earned = earned_points
+        self.progress_data = progress_data
+        self.last_activity = datetime.utcnow()
+        
+        # Update status
+        if self.achievements_completed == self.total_achievements:
+            if self.status != 'completed':
+                self.status = 'completed'
+                self.completed_at = datetime.utcnow()
+        elif self.achievements_completed > 0:
+            self.status = 'in_progress'
+        else:
+            self.status = 'not_started'
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'collection_id': self.collection_id,
+            'achievements_completed': self.achievements_completed,
+            'total_achievements': self.total_achievements,
+            'points_earned': self.points_earned,
+            'total_points': self.total_points,
+            'completion_percentage': self.completion_percentage,
+            'points_percentage': self.points_percentage,
+            'status': self.status,
+            'is_completed': self.is_completed,
+            'started_at': self.started_at.isoformat(),
+            'completed_at': self.completed_at.isoformat() if self.completed_at else None,
+            'last_activity': self.last_activity.isoformat(),
+            'progress_data': self.progress_data
+        }
+
+

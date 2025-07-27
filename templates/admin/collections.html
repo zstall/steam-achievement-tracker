@@ -1,0 +1,288 @@
+{% extends "../base.html" %}
+
+{% block title %}Admin: Achievement Collections - Steam Achievement Tracker{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h1><i class="fas fa-shield-alt text-danger"></i> Admin: Collection Management</h1>
+            <div>
+                <a href="{{ url_for('admin_create_collection') }}" class="btn btn-success">
+                    <i class="fas fa-plus"></i> Create Collection
+                </a>
+                <a href="{{ url_for('admin_users') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-users"></i> User Management
+                </a>
+            </div>
+        </div>
+        <p class="text-muted">Manage achievement collections and campaigns</p>
+    </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            {% set alert_class = 'alert-info' %}
+            {% if category == 'success' %}
+                {% set alert_class = 'alert-success' %}
+            {% elif category == 'error' %}
+                {% set alert_class = 'alert-danger' %}
+            {% elif category == 'warning' %}
+                {% set alert_class = 'alert-warning' %}
+            {% endif %}
+            <div class="alert {{ alert_class }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+<!-- Statistics Overview -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h3 class="card-title">{{ stats.total_collections }}</h3>
+                        <p class="card-text">Total Collections</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-folder fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h3 class="card-title">{{ stats.active_collections }}</h3>
+                        <p class="card-text">Active Collections</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-play fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h3 class="card-title">{{ stats.featured_collections }}</h3>
+                        <p class="card-text">Featured</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-star fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h3 class="card-title">{{ stats.total_participants }}</h3>
+                        <p class="card-text">Total Participants</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-users fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Collections Table -->
+<div class="card">
+    <div class="card-header">
+        <h5><i class="fas fa-folder-open"></i> Achievement Collections</h5>
+    </div>
+    <div class="card-body">
+        {% if collections %}
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Collection</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Participants</th>
+                        <th>Items</th>
+                        <th>Created</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for collection in collections %}
+                    <tr>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="badge bg-{{ collection.color_theme }} me-2">
+                                    {% if collection.collection_type == 'seasonal' %}
+                                        <i class="fas fa-leaf"></i>
+                                    {% elif collection.collection_type == 'featured' %}
+                                        <i class="fas fa-star"></i>
+                                    {% elif collection.collection_type == 'event' %}
+                                        <i class="fas fa-calendar"></i>
+                                    {% elif collection.collection_type == 'challenge' %}
+                                        <i class="fas fa-trophy"></i>
+                                    {% endif %}
+                                </div>
+                                <div>
+                                    <strong>{{ collection.name }}</strong>
+                                    {% if collection.is_featured %}
+                                        <span class="badge bg-warning text-dark ms-1">Featured</span>
+                                    {% endif %}
+                                    <br>
+                                    <small class="text-muted">{{ collection.description[:50] }}{% if collection.description|length > 50 %}...{% endif %}</small>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge bg-secondary">{{ collection.collection_type.title() }}</span>
+                            <br>
+                            <small class="text-muted">{{ collection.difficulty_level.title() }}</small>
+                        </td>
+                        <td>
+                            {% if collection.is_currently_active %}
+                                <span class="badge bg-success">Active</span>
+                            {% elif not collection.is_active %}
+                                <span class="badge bg-secondary">Inactive</span>
+                            {% else %}
+                                <span class="badge bg-warning">Scheduled</span>
+                            {% endif %}
+                            
+                            {% if collection.start_date or collection.end_date %}
+                                <br>
+                                <small class="text-muted">
+                                    {% if collection.start_date %}
+                                        From {{ collection.start_date.strftime('%b %d, %Y') }}
+                                    {% endif %}
+                                    {% if collection.end_date %}
+                                        {% if collection.start_date %} to {% endif %}
+                                        {{ collection.end_date.strftime('%b %d, %Y') }}
+                                    {% endif %}
+                                </small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <strong>{{ collection.participants_count }}</strong>
+                            <br>
+                            <small class="text-muted">{{ collection.completions_count }} completed</small>
+                        </td>
+                        <td>
+                            <strong>{{ collection.total_achievements }}</strong> achievements
+                            <br>
+                            <small class="text-muted">{{ collection.views_count }} views</small>
+                        </td>
+                        <td>
+                            {{ collection.created_at.strftime('%b %d, %Y') }}
+                            <br>
+                            <small class="text-muted">by {{ collection.creator.username }}</small>
+                        </td>
+                        <td>
+                            <div class="btn-group-vertical btn-group-sm" role="group">
+                                <a href="{{ url_for('admin_manage_collection', collection_id=collection.id) }}" 
+                                   class="btn btn-outline-primary btn-sm">
+                                    <i class="fas fa-cogs"></i> Manage
+                                </a>
+                                <a href="{{ url_for('admin_edit_collection', collection_id=collection.id) }}" 
+                                   class="btn btn-outline-secondary btn-sm">
+                                    <i class="fas fa-edit"></i> Edit
+                                </a>
+                                <button class="btn btn-outline-danger btn-sm" 
+                                        onclick="deleteCollection({{ collection.id }}, '{{ collection.name }}')">
+                                    <i class="fas fa-trash"></i> Delete
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-folder fa-3x text-muted mb-3"></i>
+            <h4>No Collections Created Yet</h4>
+            <p class="text-muted">Create your first achievement collection to get started!</p>
+            <a href="{{ url_for('admin_create_collection') }}" class="btn btn-success">
+                <i class="fas fa-plus"></i> Create First Collection
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function deleteCollection(collectionId, collectionName) {
+    if (!confirm(`Are you sure you want to delete the collection "${collectionName}"?\n\nThis will remove all items and user progress. This action cannot be undone.`)) {
+        return;
+    }
+    
+    fetch(`/admin/collections/${collectionId}/delete`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message, 'success');
+            // Remove the row from the table
+            setTimeout(() => {
+                location.reload();
+            }, 1500);
+        } else {
+            showNotification(data.error || 'Failed to delete collection', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Network error occurred while deleting collection', 'error');
+    });
+}
+
+function showNotification(message, type = 'info') {
+    // Create notification container if it doesn't exist
+    let container = document.getElementById('notificationContainer');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'notificationContainer';
+        container.className = 'position-fixed top-0 end-0 p-3';
+        container.style.zIndex = '9999';
+        document.body.appendChild(container);
+    }
+    
+    // Create notification
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type === 'error' ? 'danger' : 'success'} alert-dismissible fade show`;
+    notification.innerHTML = `
+        <i class="fas fa-${type === 'error' ? 'exclamation-triangle' : 'check-circle'}"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    container.appendChild(notification);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}

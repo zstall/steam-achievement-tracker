@@ -1,0 +1,304 @@
+{% extends "base.html" %}
+
+{% block title %}Achievement Collections - Steam Achievement Tracker{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h1><i class="fas fa-folder-open"></i> Achievement Collections</h1>
+            <div>
+                <a href="{{ url_for('custom_achievements') }}" class="btn btn-outline-primary">
+                    <i class="fas fa-trophy"></i> My Achievements
+                </a>
+                <a href="{{ url_for('community_achievements') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-users"></i> Community
+                </a>
+            </div>
+        </div>
+        <p class="text-muted">Join curated collections and campaigns to unlock achievements together</p>
+    </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            {% set alert_class = 'alert-info' %}
+            {% if category == 'success' %}
+                {% set alert_class = 'alert-success' %}
+            {% elif category == 'error' %}
+                {% set alert_class = 'alert-danger' %}
+            {% elif category == 'warning' %}
+                {% set alert_class = 'alert-warning' %}
+            {% endif %}
+            <div class="alert {{ alert_class }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+{% if featured_collections %}
+<!-- Featured Collections -->
+<div class="row mb-4">
+    <div class="col-12">
+        <h3><i class="fas fa-star text-warning"></i> Featured Collections</h3>
+        <p class="text-muted">Specially curated collections for the community</p>
+    </div>
+</div>
+
+<div class="row mb-5">
+    {% for collection in featured_collections[:3] %}
+    <div class="col-lg-4 col-md-6 mb-4">
+        <div class="card h-100 border-{{ collection.color_theme }} shadow">
+            <div class="card-header bg-{{ collection.color_theme }} text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0">
+                        {% if collection.collection_type == 'seasonal' %}
+                            <i class="fas fa-leaf"></i>
+                        {% elif collection.collection_type == 'featured' %}
+                            <i class="fas fa-star"></i>
+                        {% elif collection.collection_type == 'event' %}
+                            <i class="fas fa-calendar"></i>
+                        {% elif collection.collection_type == 'challenge' %}
+                            <i class="fas fa-trophy"></i>
+                        {% endif %}
+                        {{ collection.collection_type.title() }}
+                    </h6>
+                    <span class="badge bg-warning text-dark">
+                        <i class="fas fa-star"></i> Featured
+                    </span>
+                </div>
+            </div>
+            <div class="card-body">
+                <h5 class="card-title">{{ collection.name }}</h5>
+                <p class="card-text">{{ collection.description }}</p>
+                
+                <div class="mb-3">
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <div class="h6 mb-0 text-primary">{{ collection.total_achievements }}</div>
+                            <small class="text-muted">Achievements</small>
+                        </div>
+                        <div class="col-4">
+                            <div class="h6 mb-0 text-success">{{ collection.participants_count }}</div>
+                            <small class="text-muted">Participants</small>
+                        </div>
+                        <div class="col-4">
+                            <div class="h6 mb-0 text-info">{{ collection.difficulty_level.title() }}</div>
+                            <small class="text-muted">Difficulty</small>
+                        </div>
+                    </div>
+                </div>
+
+                {% if collection.estimated_time %}
+                <p class="text-muted small">
+                    <i class="fas fa-clock"></i> Estimated time: {{ collection.estimated_time }}
+                </p>
+                {% endif %}
+
+                {% set progress = user_progress.get(collection.id) %}
+                {% if progress %}
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between mb-1">
+                        <small class="text-muted">Your Progress</small>
+                        <small class="text-muted">{{ progress.completion_percentage }}%</small>
+                    </div>
+                    <div class="progress" style="height: 8px;">
+                        <div class="progress-bar bg-{{ collection.color_theme }}" 
+                             role="progressbar" 
+                             style="width: {{ progress.completion_percentage }}%;">
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            <div class="card-footer">
+                <a href="{{ url_for('view_collection', collection_id=collection.id) }}" 
+                   class="btn btn-{{ collection.color_theme }} w-100">
+                    {% if progress %}
+                        <i class="fas fa-eye"></i> Continue Progress
+                    {% else %}
+                        <i class="fas fa-play"></i> Start Collection
+                    {% endif %}
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- All Collections -->
+<div class="row mb-3">
+    <div class="col-12">
+        <h3><i class="fas fa-folder"></i> All Collections</h3>
+        <p class="text-muted">Browse all available achievement collections</p>
+    </div>
+</div>
+
+{% if collections %}
+<div class="row">
+    {% for collection in collections %}
+    <div class="col-lg-6 col-md-12 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center">
+                        <div class="badge bg-{{ collection.color_theme }} me-2">
+                            {% if collection.collection_type == 'seasonal' %}
+                                <i class="fas fa-leaf"></i>
+                            {% elif collection.collection_type == 'featured' %}
+                                <i class="fas fa-star"></i>
+                            {% elif collection.collection_type == 'event' %}
+                                <i class="fas fa-calendar"></i>
+                            {% elif collection.collection_type == 'challenge' %}
+                                <i class="fas fa-trophy"></i>
+                            {% endif %}
+                        </div>
+                        <h6 class="mb-0">{{ collection.name }}</h6>
+                    </div>
+                    {% if collection.is_featured %}
+                        <span class="badge bg-warning text-dark">
+                            <i class="fas fa-star"></i> Featured
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-body">
+                <p class="card-text">{{ collection.description }}</p>
+                
+                <div class="mb-3">
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="text-center">
+                                <div class="h5 mb-0 text-primary">{{ collection.total_achievements }}</div>
+                                <small class="text-muted">Achievements</small>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="text-center">
+                                <div class="h5 mb-0 text-success">{{ collection.participants_count }}</div>
+                                <small class="text-muted">Participants</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <span class="badge bg-secondary">{{ collection.collection_type.title() }}</span>
+                    <span class="badge bg-info">{{ collection.difficulty_level.title() }}</span>
+                    {% if collection.estimated_time %}
+                        <span class="badge bg-light text-dark">
+                            <i class="fas fa-clock"></i> {{ collection.estimated_time }}
+                        </span>
+                    {% endif %}
+                </div>
+
+                {% set progress = user_progress.get(collection.id) %}
+                {% if progress %}
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between mb-1">
+                        <small class="text-muted">Your Progress</small>
+                        <small class="text-muted">{{ progress.completion_percentage }}%</small>
+                    </div>
+                    <div class="progress" style="height: 8px;">
+                        <div class="progress-bar bg-{{ collection.color_theme }}" 
+                             role="progressbar" 
+                             style="width: {{ progress.completion_percentage }}%;">
+                        </div>
+                    </div>
+                    <small class="text-muted">
+                        {{ progress.achievements_completed }}/{{ progress.total_achievements }} completed
+                        {% if progress.is_completed %}
+                            <span class="text-success"><i class="fas fa-check"></i> Completed!</span>
+                        {% endif %}
+                    </small>
+                </div>
+                {% endif %}
+
+                {% if collection.end_date %}
+                <div class="alert alert-warning alert-sm mb-3">
+                    <i class="fas fa-clock"></i> 
+                    <strong>Limited Time:</strong> Ends {{ collection.end_date.strftime('%B %d, %Y') }}
+                </div>
+                {% endif %}
+            </div>
+            <div class="card-footer">
+                <a href="{{ url_for('view_collection', collection_id=collection.id) }}" 
+                   class="btn btn-outline-{{ collection.color_theme }} w-100">
+                    {% if progress %}
+                        {% if progress.is_completed %}
+                            <i class="fas fa-trophy"></i> View Completed
+                        {% else %}
+                            <i class="fas fa-eye"></i> Continue ({{ progress.completion_percentage }}%)
+                        {% endif %}
+                    {% else %}
+                        <i class="fas fa-play"></i> Start Collection
+                    {% endif %}
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="fas fa-folder fa-3x text-muted mb-3"></i>
+                <h4>No Collections Available</h4>
+                <p class="text-muted">There are currently no active achievement collections.</p>
+                <p class="text-muted">Check back later or explore individual achievements in the community!</p>
+                <a href="{{ url_for('community_achievements') }}" class="btn btn-primary">
+                    <i class="fas fa-users"></i> Browse Community Achievements
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Information Section -->
+<div class="row mt-5">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-info-circle"></i> About Achievement Collections</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-users text-primary"></i> What are Collections?</h6>
+                        <p class="small text-muted">
+                            Collections are curated groups of achievements around specific themes, events, or challenges.
+                            Join collections to track your progress and compete with other players!
+                        </p>
+                        
+                        <h6><i class="fas fa-trophy text-warning"></i> How to Participate</h6>
+                        <p class="small text-muted">
+                            Click on any collection to see its achievements. Import achievements from the collection
+                            to track your progress and earn points towards completion.
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-chart-line text-success"></i> Progress Tracking</h6>
+                        <p class="small text-muted">
+                            Your progress is automatically tracked as you complete achievements from collections.
+                            See your completion percentage and compare with other participants.
+                        </p>
+                        
+                        <h6><i class="fas fa-clock text-info"></i> Collection Types</h6>
+                        <p class="small text-muted">
+                            Collections can be seasonal events, featured challenges, or ongoing campaigns.
+                            Some collections have time limits, while others are always available.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -75,6 +75,9 @@
                 <a href="{{ url_for('community_achievements') }}" class="btn btn-outline-info btn-sm me-2">
                     <i class="fas fa-users"></i> Community
                 </a>
+                <a href="{{ url_for('collections') }}" class="btn btn-outline-success btn-sm me-2">
+                    <i class="fas fa-folder-open"></i> Collections
+                </a>
                 <a href="{{ url_for('trophy_feed') }}" class="btn btn-outline-warning btn-sm me-2">
                     <i class="fas fa-trophy"></i> Trophy Feed
                 </a>
@@ -85,9 +88,19 @@
                     <i class="fas fa-user-cog"></i> Profile
                 </a>
                 {% if current_user.username == 'admin' %}
-                <a href="{{ url_for('admin_users') }}" class="btn btn-outline-warning btn-sm me-2">
-                    <i class="fas fa-users-cog"></i> Admin
-                </a>
+                <div class="btn-group me-2" role="group">
+                    <button type="button" class="btn btn-outline-warning btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="fas fa-shield-alt"></i> Admin
+                    </button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{{ url_for('admin_users') }}">
+                            <i class="fas fa-users-cog"></i> User Management
+                        </a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('admin_collections') }}">
+                            <i class="fas fa-folder-cog"></i> Collections
+                        </a></li>
+                    </ul>
+                </div>
                 {% endif %}
                 <a href="{{ url_for('logout') }}" class="btn btn-outline-danger btn-sm">
                     <i class="fas fa-sign-out-alt"></i> Logout
