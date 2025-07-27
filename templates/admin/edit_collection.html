@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+
+{% block title %}Admin: Edit Collection - Steam Achievement Tracker{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h1><i class="fas fa-edit"></i> Edit Collection: {{ collection.name }}</h1>
+            <a href="{{ url_for('admin_collections') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Collections
+            </a>
+        </div>
+        <p class="text-muted">Modify collection details and manage achievements</p>
+    </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            {% set alert_class = 'alert-info' %}
+            {% if category == 'success' %}
+                {% set alert_class = 'alert-success' %}
+            {% elif category == 'error' %}
+                {% set alert_class = 'alert-danger' %}
+            {% elif category == 'warning' %}
+                {% set alert_class = 'alert-warning' %}
+            {% endif %}
+            <div class="alert {{ alert_class }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-folder-edit"></i> Collection Details</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label for="name" class="form-label">Collection Name <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="name" name="name" required 
+                                       value="{{ collection.name }}" placeholder="Enter collection name" maxlength="255">
+                                <small class="form-text text-muted">Choose a descriptive name for your collection</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="color_theme" class="form-label">Color Theme</label>
+                                <select class="form-select" id="color_theme" name="color_theme">
+                                    <option value="primary" {{ 'selected' if collection.color_theme == 'primary' else '' }}>Blue (Primary)</option>
+                                    <option value="success" {{ 'selected' if collection.color_theme == 'success' else '' }}>Green (Success)</option>
+                                    <option value="warning" {{ 'selected' if collection.color_theme == 'warning' else '' }}>Yellow (Warning)</option>
+                                    <option value="danger" {{ 'selected' if collection.color_theme == 'danger' else '' }}>Red (Danger)</option>
+                                    <option value="info" {{ 'selected' if collection.color_theme == 'info' else '' }}>Cyan (Info)</option>
+                                    <option value="secondary" {{ 'selected' if collection.color_theme == 'secondary' else '' }}>Gray (Secondary)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="description" name="description" rows="3" required
+                                  placeholder="Describe this collection and what makes it special">{{ collection.description }}</textarea>
+                        <small class="form-text text-muted">Explain the theme, goals, or requirements of this collection</small>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="collection_type" class="form-label">Collection Type</label>
+                                <select class="form-select" id="collection_type" name="collection_type">
+                                    <option value="seasonal" {{ 'selected' if collection.collection_type == 'seasonal' else '' }}>Seasonal</option>
+                                    <option value="featured" {{ 'selected' if collection.collection_type == 'featured' else '' }}>Featured</option>
+                                    <option value="event" {{ 'selected' if collection.collection_type == 'event' else '' }}>Event</option>
+                                    <option value="challenge" {{ 'selected' if collection.collection_type == 'challenge' else '' }}>Challenge</option>
+                                </select>
+                                <small class="form-text text-muted">Categorizes the collection for organization</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="difficulty_level" class="form-label">Difficulty Level</label>
+                                <select class="form-select" id="difficulty_level" name="difficulty_level">
+                                    <option value="easy" {{ 'selected' if collection.difficulty_level == 'easy' else '' }}>Easy</option>
+                                    <option value="medium" {{ 'selected' if collection.difficulty_level == 'medium' else '' }}>Medium</option>
+                                    <option value="hard" {{ 'selected' if collection.difficulty_level == 'hard' else '' }}>Hard</option>
+                                    <option value="extreme" {{ 'selected' if collection.difficulty_level == 'extreme' else '' }}>Extreme</option>
+                                </select>
+                                <small class="form-text text-muted">Expected difficulty for completion</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label for="estimated_time" class="form-label">Estimated Time</label>
+                                <input type="text" class="form-control" id="estimated_time" name="estimated_time" 
+                                       value="{{ collection.estimated_time or '' }}" placeholder="e.g., 1-2 weeks" maxlength="50">
+                                <small class="form-text text-muted">How long to complete (optional)</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="start_date" class="form-label">Start Date (Optional)</label>
+                                <input type="date" class="form-control" id="start_date" name="start_date"
+                                       value="{{ collection.start_date.strftime('%Y-%m-%d') if collection.start_date else '' }}">
+                                <small class="form-text text-muted">When this collection becomes available</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="end_date" class="form-label">End Date (Optional)</label>
+                                <input type="date" class="form-control" id="end_date" name="end_date"
+                                       value="{{ collection.end_date.strftime('%Y-%m-%d') if collection.end_date else '' }}">
+                                <small class="form-text text-muted">When this collection expires</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="is_featured" name="is_featured"
+                                   {{ 'checked' if collection.is_featured else '' }}>
+                            <label class="form-check-label" for="is_featured">
+                                <i class="fas fa-star text-warning"></i> Featured Collection
+                            </label>
+                            <small class="form-text text-muted d-block">Featured collections are highlighted prominently to users</small>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="is_active" name="is_active"
+                                   {{ 'checked' if collection.is_active else '' }}>
+                            <label class="form-check-label" for="is_active">
+                                <i class="fas fa-toggle-on text-success"></i> Active Collection
+                            </label>
+                            <small class="form-text text-muted d-block">Only active collections are visible to users</small>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('admin_collections') }}" class="btn btn-secondary">
+                            <i class="fas fa-times"></i> Cancel
+                        </a>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-save"></i> Update Collection
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h6><i class="fas fa-chart-bar"></i> Collection Statistics</h6>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6">
+                        <div class="h4 mb-0 text-primary">{{ collection.achievements|length if collection.achievements else 0 }}</div>
+                        <small class="text-muted">Achievements</small>
+                    </div>
+                    <div class="col-6">
+                        <div class="h4 mb-0 text-success">{{ collection.participants|length if collection.participants else 0 }}</div>
+                        <small class="text-muted">Participants</small>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="mb-2">
+                    <strong>Created:</strong> {{ collection.created_at.strftime('%b %d, %Y') }}
+                </div>
+                <div class="mb-2">
+                    <strong>Status:</strong> 
+                    <span class="badge bg-{{ 'success' if collection.is_active else 'secondary' }}">
+                        {{ 'Active' if collection.is_active else 'Inactive' }}
+                    </span>
+                </div>
+                {% if collection.is_featured %}
+                <div class="mb-2">
+                    <span class="badge bg-warning text-dark">
+                        <i class="fas fa-star"></i> Featured
+                    </span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        {% if collection.achievements %}
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6><i class="fas fa-list"></i> Achievements Preview</h6>
+            </div>
+            <div class="card-body">
+                {% for item in collection.achievements[:5] %}
+                <div class="d-flex align-items-center mb-2">
+                    <i class="fas fa-trophy text-warning me-2"></i>
+                    <small>{{ item.achievement.name if item.achievement else 'Unknown Achievement' }}</small>
+                </div>
+                {% endfor %}
+                {% if collection.achievements|length > 5 %}
+                <small class="text-muted">+{{ collection.achievements|length - 5 }} more achievements</small>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+// Add real-time validation and preview
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form');
+    const nameInput = document.getElementById('name');
+    const colorTheme = document.getElementById('color_theme');
+    
+    // Live preview of color theme
+    colorTheme.addEventListener('change', function() {
+        console.log('Color theme changed to:', this.value);
+    });
+    
+    // Form validation
+    form.addEventListener('submit', function(e) {
+        const name = nameInput.value.trim();
+        const description = document.getElementById('description').value.trim();
+        
+        if (!name || !description) {
+            e.preventDefault();
+            alert('Please fill in all required fields (Name and Description).');
+            return false;
+        }
+        
+        if (name.length < 3) {
+            e.preventDefault();
+            alert('Collection name must be at least 3 characters long.');
+            nameInput.focus();
+            return false;
+        }
+    });
+    
+    // Auto-format estimated time field
+    const estimatedTime = document.getElementById('estimated_time');
+    estimatedTime.addEventListener('blur', function() {
+        const value = this.value.trim();
+        if (value && !value.match(/\d+/)) {
+            this.setCustomValidity('Please include a time estimate (e.g., "2 weeks", "1 month")');
+        } else {
+            this.setCustomValidity('');
+        }
+    });
+});
+</script>
+{% endblock %}

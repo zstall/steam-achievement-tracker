@@ -2007,6 +2007,53 @@ def admin_create_collection_tables():
             'message': f'❌ Error creating collection tables: {str(e)}'
         }), 500
 
+@app.route('/admin/create-social-tables')
+@login_required
+def admin_create_social_tables():
+    """Admin route to create social/friendship tables manually"""
+    if current_user.username != 'admin':
+        return jsonify({'success': False, 'message': 'Admin access required'}), 403
+        
+    try:
+        # Create the user_friendship table with raw SQL
+        friendship_sql = """
+        CREATE TABLE IF NOT EXISTS user_friendship (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            friend_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            status VARCHAR(20) NOT NULL DEFAULT 'pending',
+            created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
+            accepted_at TIMESTAMP WITHOUT TIME ZONE,
+            blocked_at TIMESTAMP WITHOUT TIME ZONE,
+            UNIQUE(user_id, friend_id),
+            CHECK (user_id != friend_id),
+            CHECK (status IN ('pending', 'accepted', 'blocked', 'rejected'))
+        );
+        
+        CREATE INDEX IF NOT EXISTS idx_friendship_user_status ON user_friendship(user_id, status);
+        CREATE INDEX IF NOT EXISTS idx_friendship_friend_status ON user_friendship(friend_id, status);
+        CREATE INDEX IF NOT EXISTS idx_friendship_status ON user_friendship(status);
+        CREATE INDEX IF NOT EXISTS idx_friendship_dates ON user_friendship(created_at, accepted_at);
+        """
+        
+        # Execute table creation
+        db.session.execute(db.text(friendship_sql))
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': '✅ Social/friendship tables created successfully!',
+            'tables_created': ['user_friendship'],
+            'features_enabled': ['User profiles', 'Friend requests', 'Social discovery']
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'❌ Error creating social tables: {str(e)}'
+        }), 500
+
 
 # ========================================
 # USER COLLECTION ROUTES
