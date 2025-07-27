@@ -125,27 +125,27 @@
                                     </td>
                                     <td>
                                         <div class="d-flex align-items-center">
-                                            {% if item.achievement.image_filename %}
-                                                <img src="{{ get_achievement_image_url(item.achievement.image_filename) }}" 
+                                            {% if item.shared_achievement.image_filename %}
+                                                <img src="{{ get_achievement_image_url(item.shared_achievement.image_filename) }}" 
                                                      class="achievement-card-image me-2" 
-                                                     alt="{{ item.achievement.name }}">
+                                                     alt="{{ item.shared_achievement.name }}">
                                             {% else %}
                                                 <i class="fas fa-trophy text-warning me-2"></i>
                                             {% endif %}
                                             <div>
-                                                <strong>{{ item.achievement.name }}</strong>
-                                                {% if item.achievement.description %}
-                                                    <br><small class="text-muted">{{ item.achievement.description[:100] }}{% if item.achievement.description|length > 100 %}...{% endif %}</small>
+                                                <strong>{{ item.shared_achievement.name }}</strong>
+                                                {% if item.shared_achievement.description %}
+                                                    <br><small class="text-muted">{{ item.shared_achievement.description[:100] }}{% if item.shared_achievement.description|length > 100 %}...{% endif %}</small>
                                                 {% endif %}
                                             </div>
                                         </div>
                                     </td>
-                                    <td>{{ item.achievement.original_creator_username or 'Unknown' }}</td>
+                                    <td>{{ item.shared_achievement.original_creator_username or 'Unknown' }}</td>
                                     <td>
-                                        <span class="badge bg-warning">{{ item.points or 10 }}</span>
+                                        <span class="badge bg-warning">{{ item.point_value or 10 }}</span>
                                     </td>
                                     <td>
-                                        <span class="text-info">{{ item.achievement.completion_count or 0 }}</span>
+                                        <span class="text-info">{{ item.shared_achievement.completion_count or 0 }}</span>
                                     </td>
                                     <td>
                                         <div class="btn-group btn-group-sm">

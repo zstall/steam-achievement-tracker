@@ -860,20 +860,12 @@ class UserFriendship(db.Model):
     
     # Friendship status and metadata
     status = db.Column(db.String(20), nullable=False, default='pending')  # 'pending', 'accepted', 'blocked'
-    requested_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     accepted_at = db.Column(db.DateTime, nullable=True)
-    blocked_at = db.Column(db.DateTime, nullable=True)
-    
-    # Who initiated the friendship
-    initiated_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    
-    # Optional friendship notes/context
-    request_message = db.Column(db.Text, nullable=True)
     
     # Relationships
     user = db.relationship('User', foreign_keys=[user_id], backref='sent_friendships')
     friend = db.relationship('User', foreign_keys=[friend_id], backref='received_friendships')
-    initiator = db.relationship('User', foreign_keys=[initiated_by])
     
     # Constraints
     __table_args__ = (
