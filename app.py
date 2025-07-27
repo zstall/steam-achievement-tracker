@@ -1081,9 +1081,20 @@ def unshare_achievement(achievement_id):
     ).first()
     
     if shared_achievement:
-        db.session.delete(shared_achievement)
-        db.session.commit()
-        flash('Achievement removed from community sharing!')
+        # Check if this shared achievement is used in any collections
+        collection_items = CollectionItem.query.filter_by(
+            shared_achievement_id=shared_achievement.id
+        ).all()
+        
+        if collection_items:
+            # Cannot unshare if used in collections
+            collection_names = [item.collection.name for item in collection_items]
+            flash(f'Cannot unshare achievement! It is currently used in these collections: {", ".join(collection_names[:3])}{"..." if len(collection_names) > 3 else ""}', 'error')
+        else:
+            # Safe to unshare
+            db.session.delete(shared_achievement)
+            db.session.commit()
+            flash('Achievement removed from community sharing!')
     else:
         flash('Achievement was not shared!')
     
