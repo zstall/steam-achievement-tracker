@@ -1788,20 +1788,29 @@ def admin_manage_collection(collection_id):
     # Get user progress
     progress_records = UserCollectionProgress.query.filter_by(collection_id=collection_id)\
         .join(User)\
-        .order_by(UserCollectionProgress.completion_percentage.desc()).all()
+        .order_by(UserCollectionProgress.achievements_completed.desc()).all()
     
     # Get available shared achievements not in this collection
     existing_achievement_ids = [item.shared_achievement_id for item in items]
-    available_achievements = SharedAchievement.query.filter(
+    available_shared_achievements = SharedAchievement.query.filter(
         ~SharedAchievement.id.in_(existing_achievement_ids),
         SharedAchievement.is_active == True
     ).order_by(SharedAchievement.name).all()
+    
+    # Also get custom achievements that could be promoted to shared
+    available_custom_achievements = CustomAchievement.query.filter(
+        ~CustomAchievement.id.in_(
+            db.session.query(SharedAchievement.custom_achievement_id)
+            .filter(SharedAchievement.custom_achievement_id.isnot(None))
+        )
+    ).order_by(CustomAchievement.name).limit(50).all()  # Limit to 50 for performance
     
     return render_template('admin/manage_collection.html',
                          collection=collection,
                          items=items,
                          progress_records=progress_records,
-                         available_achievements=available_achievements)
+                         available_shared_achievements=available_shared_achievements,
+                         available_custom_achievements=available_custom_achievements)
 
 @app.route('/admin/collections/<int:collection_id>/add-achievement', methods=['POST'])
 @login_required
@@ -1860,6 +1869,81 @@ def admin_add_achievement_to_collection(collection_id):
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/admin/collections/<int:collection_id>/add-custom-achievement', methods=['POST'])
+@login_required
+def admin_add_custom_achievement_to_collection(collection_id):
+    """Admin route to promote custom achievement to shared and add to collection"""
+    if current_user.username != 'admin':
+        return jsonify({'success': False, 'error': 'Access denied'}), 403
+    
+    try:
+        collection = AchievementCollection.query.get_or_404(collection_id)
+        custom_achievement_id = request.json.get('custom_achievement_id')
+        point_value = request.json.get('point_value', 10)
+        is_required = request.json.get('is_required', True)
+        
+        if not custom_achievement_id:
+            return jsonify({'success': False, 'error': 'Custom achievement ID required'}), 400
+        
+        custom_achievement = CustomAchievement.query.get_or_404(custom_achievement_id)
+        
+        # Check if this custom achievement is already promoted to shared
+        existing_shared = SharedAchievement.query.filter_by(
+            custom_achievement_id=custom_achievement_id
+        ).first()
+        
+        if existing_shared:
+            # Use existing shared achievement
+            shared_achievement = existing_shared
+        else:
+            # Promote custom achievement to shared
+            shared_achievement = SharedAchievement(
+                name=custom_achievement.name,
+                description=custom_achievement.description,
+                custom_achievement_id=custom_achievement.id,
+                original_creator_username=custom_achievement.user.username,
+                image_filename=custom_achievement.image_filename,
+                is_active=True,
+                created_at=db.func.current_timestamp()
+            )
+            db.session.add(shared_achievement)
+            db.session.flush()  # Get the ID
+        
+        # Check if achievement already in collection
+        existing_item = CollectionItem.query.filter_by(
+            collection_id=collection_id,
+            shared_achievement_id=shared_achievement.id
+        ).first()
+        
+        if existing_item:
+            return jsonify({'success': False, 'error': 'Achievement already in collection'}), 400
+        
+        # Get next order index
+        max_order = db.session.query(db.func.max(CollectionItem.order_index))\
+            .filter_by(collection_id=collection_id).scalar() or 0
+        
+        # Create collection item
+        collection_item = CollectionItem(
+            collection_id=collection_id,
+            shared_achievement_id=shared_achievement.id,
+            order_index=max_order + 1,
+            points=point_value,
+            is_required=is_required
+        )
+        
+        db.session.add(collection_item)
+        db.session.commit()
+        
+        action = "promoted and added" if not existing_shared else "added"
+        return jsonify({
+            'success': True,
+            'message': f'Custom achievement "{custom_achievement.name}" {action} to collection successfully!'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/admin/collections/<int:collection_id>/remove-achievement/<int:item_id>', methods=['POST'])
 @login_required
 def admin_remove_achievement_from_collection(collection_id, item_id):
@@ -1885,6 +1969,69 @@ def admin_remove_achievement_from_collection(collection_id, item_id):
         return jsonify({
             'success': True,
             'message': 'Achievement removed from collection successfully'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/admin/collections/items/<int:item_id>/move', methods=['POST'])
+@login_required
+def admin_reorder_collection_item(item_id):
+    """Admin route to reorder collection items (move up/down)"""
+    if current_user.username != 'admin':
+        return jsonify({'success': False, 'error': 'Access denied'}), 403
+    
+    try:
+        data = request.get_json()
+        direction = data.get('direction')
+        
+        if direction not in ['up', 'down']:
+            return jsonify({'success': False, 'error': 'Invalid direction'}), 400
+        
+        item = CollectionItem.query.get_or_404(item_id)
+        collection_id = item.collection_id
+        
+        # Get all items in this collection ordered by order_index
+        all_items = CollectionItem.query.filter_by(collection_id=collection_id)\
+            .order_by(CollectionItem.order_index).all()
+        
+        # Find current item position
+        current_index = None
+        for i, collection_item in enumerate(all_items):
+            if collection_item.id == item_id:
+                current_index = i
+                break
+        
+        if current_index is None:
+            return jsonify({'success': False, 'error': 'Item not found'}), 404
+        
+        # Check if move is possible
+        if direction == 'up' and current_index == 0:
+            return jsonify({'success': False, 'error': 'Item is already at the top'}), 400
+        
+        if direction == 'down' and current_index == len(all_items) - 1:
+            return jsonify({'success': False, 'error': 'Item is already at the bottom'}), 400
+        
+        # Swap positions
+        if direction == 'up':
+            swap_index = current_index - 1
+        else:
+            swap_index = current_index + 1
+        
+        # Swap order_index values
+        current_item = all_items[current_index]
+        swap_item = all_items[swap_index]
+        
+        temp_order = current_item.order_index
+        current_item.order_index = swap_item.order_index
+        swap_item.order_index = temp_order
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Achievement moved {direction} successfully'
         })
         
     except Exception as e:
@@ -2275,7 +2422,7 @@ def user_profile(username):
     collections = UserCollectionProgress.query.filter_by(user_id=user.id)\
         .join(AchievementCollection)\
         .filter(AchievementCollection.is_active == True)\
-        .order_by(UserCollectionProgress.completion_percentage.desc())\
+        .order_by(UserCollectionProgress.achievements_completed.desc())\
         .limit(6).all()
     
     # Get recent activity

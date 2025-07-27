@@ -852,7 +852,7 @@ class UserCollectionProgress(db.Model):
 
 class UserFriendship(db.Model):
     """User friendship relationships and friend requests"""
-    __tablename__ = 'user_friendships'
+    __tablename__ = 'user_friendship'
     
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)

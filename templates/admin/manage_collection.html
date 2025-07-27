@@ -1,0 +1,529 @@
+{% extends "base.html" %}
+
+{% block title %}Admin: Manage Collection - {{ collection.name }}{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center">
+            <h1><i class="fas fa-cogs"></i> Manage Collection: {{ collection.name }}</h1>
+            <div>
+                <a href="{{ url_for('admin_edit_collection', collection_id=collection.id) }}" class="btn btn-outline-primary me-2">
+                    <i class="fas fa-edit"></i> Edit Details
+                </a>
+                <a href="{{ url_for('admin_collections') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Back to Collections
+                </a>
+            </div>
+        </div>
+        <p class="text-muted">Add achievements and manage participants for this collection</p>
+    </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            {% set alert_class = 'alert-info' %}
+            {% if category == 'success' %}
+                {% set alert_class = 'alert-success' %}
+            {% elif category == 'error' %}
+                {% set alert_class = 'alert-danger' %}
+            {% elif category == 'warning' %}
+                {% set alert_class = 'alert-warning' %}
+            {% endif %}
+            <div class="alert {{ alert_class }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+<!-- Collection Overview -->
+<div class="row mb-4">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-info-circle"></i> Collection Details</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Description:</strong> {{ collection.description }}</p>
+                        <p><strong>Type:</strong> <span class="badge bg-{{ collection.color_theme }}">{{ collection.collection_type.title() }}</span></p>
+                        <p><strong>Difficulty:</strong> <span class="text-{{ 'danger' if collection.difficulty_level == 'extreme' else 'warning' if collection.difficulty_level == 'hard' else 'success' }}">{{ collection.difficulty_level.title() }}</span></p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Status:</strong> 
+                            <span class="badge bg-{{ 'success' if collection.is_active else 'secondary' }}">
+                                {{ 'Active' if collection.is_active else 'Inactive' }}
+                            </span>
+                            {% if collection.is_featured %}
+                                <span class="badge bg-warning text-dark ms-1"><i class="fas fa-star"></i> Featured</span>
+                            {% endif %}
+                        </p>
+                        {% if collection.estimated_time %}
+                            <p><strong>Estimated Time:</strong> {{ collection.estimated_time }}</p>
+                        {% endif %}
+                        <p><strong>Created:</strong> {{ collection.created_at.strftime('%b %d, %Y') }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h6><i class="fas fa-chart-bar"></i> Collection Statistics</h6>
+            </div>
+            <div class="card-body text-center">
+                <div class="row">
+                    <div class="col-6">
+                        <div class="h3 mb-0 text-primary">{{ items|length }}</div>
+                        <small class="text-muted">Achievements</small>
+                    </div>
+                    <div class="col-6">
+                        <div class="h3 mb-0 text-success">{{ progress_records|length }}</div>
+                        <small class="text-muted">Participants</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Current Achievements in Collection -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5><i class="fas fa-list"></i> Collection Achievements ({{ items|length }})</h5>
+                <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#addAchievementModal">
+                    <i class="fas fa-plus"></i> Add Achievement
+                </button>
+            </div>
+            <div class="card-body">
+                {% if items %}
+                    <div class="table-responsive">
+                        <table class="table table-dark table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Order</th>
+                                    <th>Achievement</th>
+                                    <th>Creator</th>
+                                    <th>Points</th>
+                                    <th>Completions</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="achievementsList">
+                                {% for item in items %}
+                                <tr data-item-id="{{ item.id }}">
+                                    <td>
+                                        <span class="badge bg-secondary">{{ item.order_index }}</span>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            {% if item.achievement.image_filename %}
+                                                <img src="{{ get_achievement_image_url(item.achievement.image_filename) }}" 
+                                                     class="achievement-card-image me-2" 
+                                                     alt="{{ item.achievement.name }}">
+                                            {% else %}
+                                                <i class="fas fa-trophy text-warning me-2"></i>
+                                            {% endif %}
+                                            <div>
+                                                <strong>{{ item.achievement.name }}</strong>
+                                                {% if item.achievement.description %}
+                                                    <br><small class="text-muted">{{ item.achievement.description[:100] }}{% if item.achievement.description|length > 100 %}...{% endif %}</small>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>{{ item.achievement.original_creator_username or 'Unknown' }}</td>
+                                    <td>
+                                        <span class="badge bg-warning">{{ item.points or 10 }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="text-info">{{ item.achievement.completion_count or 0 }}</span>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-primary" onclick="moveUp({{ item.id }})">
+                                                <i class="fas fa-arrow-up"></i>
+                                            </button>
+                                            <button class="btn btn-outline-primary" onclick="moveDown({{ item.id }})">
+                                                <i class="fas fa-arrow-down"></i>
+                                            </button>
+                                            <button class="btn btn-outline-danger" onclick="removeAchievement({{ item.id }})">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-folder-open fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">No achievements added yet</h5>
+                        <p class="text-muted">Start building this collection by adding achievements below.</p>
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addAchievementModal">
+                            <i class="fas fa-plus"></i> Add First Achievement
+                        </button>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Participants Progress -->
+{% if progress_records %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-users"></i> Participant Progress</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-dark table-striped">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Progress</th>
+                                <th>Status</th>
+                                <th>Started</th>
+                                <th>Last Activity</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for progress in progress_records %}
+                            <tr>
+                                <td>
+                                    <a href="{{ url_for('user_profile', username=progress.user.username) }}" class="text-decoration-none">
+                                        <i class="fas fa-user-circle me-1"></i> {{ progress.user.username }}
+                                    </a>
+                                </td>
+                                <td>
+                                    <div class="progress" style="height: 20px;">
+                                        <div class="progress-bar bg-{{ collection.color_theme }}" 
+                                             role="progressbar" 
+                                             style="width: {{ progress.completion_percentage }}%;"
+                                             aria-valuenow="{{ progress.completion_percentage }}" 
+                                             aria-valuemin="0" 
+                                             aria-valuemax="100">
+                                            {{ progress.completion_percentage }}%
+                                        </div>
+                                    </div>
+                                    <small class="text-muted">{{ progress.achievements_completed }}/{{ progress.total_achievements }}</small>
+                                </td>
+                                <td>
+                                    <span class="badge bg-{{ 'success' if progress.status == 'completed' else 'warning' if progress.status == 'in_progress' else 'secondary' }}">
+                                        {{ progress.status.replace('_', ' ').title() }}
+                                    </span>
+                                </td>
+                                <td>{{ progress.started_at.strftime('%b %d, %Y') if progress.started_at else 'Unknown' }}</td>
+                                <td>{{ progress.last_activity.strftime('%b %d, %Y') if progress.last_activity else 'Never' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Add Achievement Modal -->
+<div class="modal fade" id="addAchievementModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-plus"></i> Add Achievement to Collection</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Tab Navigation -->
+                <ul class="nav nav-tabs mb-3" id="achievementTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="shared-tab" data-bs-toggle="tab" data-bs-target="#shared-achievements" type="button" role="tab">
+                            <i class="fas fa-share-alt"></i> Shared Achievements ({{ available_shared_achievements|length }})
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="custom-tab" data-bs-toggle="tab" data-bs-target="#custom-achievements" type="button" role="tab">
+                            <i class="fas fa-user-cog"></i> Custom Achievements ({{ available_custom_achievements|length }})
+                        </button>
+                    </li>
+                </ul>
+                
+                <!-- Search Box -->
+                <div class="mb-3">
+                    <input type="text" class="form-control" id="achievementSearch" 
+                           placeholder="Search achievements...">
+                </div>
+                
+                <!-- Tab Content -->
+                <div class="tab-content" id="achievementTabContent">
+                    <!-- Shared Achievements Tab -->
+                    <div class="tab-pane fade show active" id="shared-achievements" role="tabpanel">
+                        {% if available_shared_achievements %}
+                            <div class="row" id="availableSharedAchievements">
+                                {% for achievement in available_shared_achievements %}
+                                <div class="col-md-6 mb-3 achievement-option shared-achievement" data-name="{{ achievement.name.lower() }}">
+                                    <div class="card bg-dark border-success">
+                                        <div class="card-body">
+                                            <div class="d-flex align-items-center justify-content-between">
+                                                <div class="d-flex align-items-center">
+                                                    {% if achievement.image_filename %}
+                                                        <img src="{{ get_achievement_image_url(achievement.image_filename) }}" 
+                                                             class="achievement-card-image me-2" 
+                                                             alt="{{ achievement.name }}">
+                                                    {% else %}
+                                                        <i class="fas fa-trophy text-warning me-2 fa-2x"></i>
+                                                    {% endif %}
+                                                    <div>
+                                                        <h6 class="mb-1">{{ achievement.name }} <span class="badge bg-success ms-1">Shared</span></h6>
+                                                        <small class="text-muted">by {{ achievement.original_creator_username or 'Unknown' }}</small>
+                                                        {% if achievement.description %}
+                                                            <br><small class="text-muted">{{ achievement.description[:80] }}{% if achievement.description|length > 80 %}...{% endif %}</small>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                                <button class="btn btn-success btn-sm" 
+                                                        onclick="addSharedAchievementToCollection({{ achievement.id }})">
+                                                    <i class="fas fa-plus"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="text-center py-4">
+                                <i class="fas fa-share-alt fa-3x text-muted mb-3"></i>
+                                <h5 class="text-muted">No available shared achievements</h5>
+                                <p class="text-muted">All shared achievements have been added to this collection or no shared achievements exist.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Custom Achievements Tab -->
+                    <div class="tab-pane fade" id="custom-achievements" role="tabpanel">
+                        {% if available_custom_achievements %}
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle"></i> 
+                                <strong>Note:</strong> Adding custom achievements will automatically promote them to shared achievements visible to all users.
+                            </div>
+                            <div class="row" id="availableCustomAchievements">
+                                {% for achievement in available_custom_achievements %}
+                                <div class="col-md-6 mb-3 achievement-option custom-achievement" data-name="{{ achievement.name.lower() }}">
+                                    <div class="card bg-dark border-primary">
+                                        <div class="card-body">
+                                            <div class="d-flex align-items-center justify-content-between">
+                                                <div class="d-flex align-items-center">
+                                                    {% if achievement.image_filename %}
+                                                        <img src="{{ get_achievement_image_url(achievement.image_filename) }}" 
+                                                             class="achievement-card-image me-2" 
+                                                             alt="{{ achievement.name }}">
+                                                    {% else %}
+                                                        <i class="fas fa-trophy text-warning me-2 fa-2x"></i>
+                                                    {% endif %}
+                                                    <div>
+                                                        <h6 class="mb-1">{{ achievement.name }} <span class="badge bg-primary ms-1">Custom</span></h6>
+                                                        <small class="text-muted">by {{ achievement.user.username }}</small>
+                                                        {% if achievement.description %}
+                                                            <br><small class="text-muted">{{ achievement.description[:80] }}{% if achievement.description|length > 80 %}...{% endif %}</small>
+                                                        {% endif %}
+                                                    </div>
+                                                </div>
+                                                <button class="btn btn-primary btn-sm" 
+                                                        onclick="addCustomAchievementToCollection({{ achievement.id }})">
+                                                    <i class="fas fa-plus"></i> Promote & Add
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="text-center py-4">
+                                <i class="fas fa-user-cog fa-3x text-muted mb-3"></i>
+                                <h5 class="text-muted">No available custom achievements</h5>
+                                <p class="text-muted">All custom achievements have been promoted to shared achievements or no custom achievements exist.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Achievement search functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('achievementSearch');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            const achievementOptions = document.querySelectorAll('.achievement-option');
+            
+            achievementOptions.forEach(option => {
+                const name = option.dataset.name;
+                if (name.includes(searchTerm)) {
+                    option.style.display = 'block';
+                } else {
+                    option.style.display = 'none';
+                }
+            });
+        });
+    }
+});
+
+function addSharedAchievementToCollection(achievementId) {
+    fetch(`/admin/collections/{{ collection.id }}/add-achievement`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            shared_achievement_id: achievementId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message, 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showNotification(data.error || 'Failed to add achievement', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Network error occurred', 'error');
+    });
+}
+
+function addCustomAchievementToCollection(customAchievementId) {
+    fetch(`/admin/collections/{{ collection.id }}/add-custom-achievement`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            custom_achievement_id: customAchievementId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message, 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showNotification(data.error || 'Failed to add custom achievement', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Network error occurred', 'error');
+    });
+}
+
+function removeAchievement(itemId) {
+    if (!confirm('Remove this achievement from the collection?')) {
+        return;
+    }
+    
+    fetch(`/admin/collections/{{ collection.id }}/remove-achievement/${itemId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message, 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showNotification(data.error || 'Failed to remove achievement', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Network error occurred', 'error');
+    });
+}
+
+function moveUp(itemId) {
+    updateOrder(itemId, 'up');
+}
+
+function moveDown(itemId) {
+    updateOrder(itemId, 'down');
+}
+
+function updateOrder(itemId, direction) {
+    fetch(`/admin/collections/items/${itemId}/move`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            direction: direction
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            showNotification(data.error || 'Failed to reorder achievement', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification('Network error occurred', 'error');
+    });
+}
+
+function showNotification(message, type = 'info') {
+    // Create notification container if it doesn't exist
+    let container = document.getElementById('notificationContainer');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'notificationContainer';
+        container.className = 'position-fixed top-0 end-0 p-3';
+        container.style.zIndex = '9999';
+        document.body.appendChild(container);
+    }
+    
+    // Create notification
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type === 'error' ? 'danger' : 'success'} alert-dismissible fade show`;
+    notification.innerHTML = `
+        <i class="fas fa-${type === 'error' ? 'exclamation-triangle' : 'check-circle'}"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    container.appendChild(notification);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}
