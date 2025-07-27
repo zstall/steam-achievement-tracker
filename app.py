@@ -2707,7 +2707,10 @@ def test_rating_system():
         # Test if we can query the tables
         rating_count = AchievementRating.query.count()
         review_count = AchievementReview.query.count()
-        achievement_count = SharedAchievement.query.count()
+        
+        # Get some sample achievement IDs
+        sample_achievements = SharedAchievement.query.limit(5).all()
+        achievement_ids = [{'id': a.id, 'name': a.name} for a in sample_achievements]
         
         return jsonify({
             'success': True,
@@ -2715,8 +2718,10 @@ def test_rating_system():
             'stats': {
                 'total_ratings': rating_count,
                 'total_reviews': review_count,
-                'total_shared_achievements': achievement_count
-            }
+                'total_shared_achievements': len(achievement_ids)
+            },
+            'sample_achievement_ids': achievement_ids,
+            'test_instructions': f'Try: /achievements/{achievement_ids[0]["id"]}/rate if you have achievements'
         })
     except Exception as e:
         return jsonify({
