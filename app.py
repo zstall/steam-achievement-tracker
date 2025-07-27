@@ -2700,6 +2700,62 @@ def remove_friend(user_id):
 # ACHIEVEMENT RATING ROUTES
 # ========================================
 
+@app.route('/test-rating-system')
+def test_rating_system():
+    """Simple test endpoint to verify rating system is working"""
+    try:
+        # Test if we can query the tables
+        rating_count = AchievementRating.query.count()
+        review_count = AchievementReview.query.count()
+        achievement_count = SharedAchievement.query.count()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Rating system is working!',
+            'stats': {
+                'total_ratings': rating_count,
+                'total_reviews': review_count,
+                'total_shared_achievements': achievement_count
+            }
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/achievements/<int:achievement_id>/rate', methods=['GET'])
+@login_required
+def get_achievement_rating(achievement_id):
+    """Get rating info for an achievement (for testing)"""
+    achievement = SharedAchievement.query.get_or_404(achievement_id)
+    
+    # Get user's rating if exists
+    user_rating = None
+    user_rating_obj = AchievementRating.query.filter_by(
+        user_id=current_user.id,
+        shared_achievement_id=achievement_id
+    ).first()
+    if user_rating_obj:
+        user_rating = user_rating_obj.rating
+    
+    # Get average rating
+    avg_rating = db.session.query(db.func.avg(AchievementRating.rating)).filter_by(
+        shared_achievement_id=achievement_id
+    ).scalar()
+    
+    rating_count = AchievementRating.query.filter_by(
+        shared_achievement_id=achievement_id
+    ).count()
+    
+    return jsonify({
+        'achievement_id': achievement_id,
+        'achievement_name': achievement.name,
+        'user_rating': user_rating,
+        'average_rating': round(float(avg_rating), 1) if avg_rating else 0,
+        'rating_count': rating_count
+    })
+
 @app.route('/achievements/<int:achievement_id>/rate', methods=['POST'])
 @login_required
 def rate_achievement(achievement_id):
