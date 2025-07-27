@@ -940,6 +940,80 @@ class UserFriendship(db.Model):
             'accepted_at': self.accepted_at.isoformat() if self.accepted_at else None
         }
 
+
+class AchievementRating(db.Model):
+    """User ratings for shared achievements (1-5 stars)"""
+    __tablename__ = 'achievement_ratings'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    shared_achievement_id = db.Column(db.Integer, db.ForeignKey('shared_achievements.id'), nullable=False)
+    
+    # Rating data
+    rating = db.Column(db.Integer, nullable=False)  # 1-5 stars
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    
+    # Relationships
+    user = db.relationship('User', backref='achievement_ratings')
+    shared_achievement = db.relationship('SharedAchievement', backref='ratings')
+    
+    # Constraints
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'shared_achievement_id', name='unique_user_achievement_rating'),
+        db.CheckConstraint('rating >= 1 AND rating <= 5', name='valid_rating_range'),
+        db.Index('idx_rating_achievement', 'shared_achievement_id', 'rating'),
+    )
+    
+    def __repr__(self):
+        return f'<AchievementRating {self.user.username}:{self.shared_achievement.name}:{self.rating}>'
+
+
+class AchievementReview(db.Model):
+    """User reviews for shared achievements"""
+    __tablename__ = 'achievement_reviews'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    shared_achievement_id = db.Column(db.Integer, db.ForeignKey('shared_achievements.id'), nullable=False)
+    
+    # Review content
+    title = db.Column(db.String(255), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    rating = db.Column(db.Integer, nullable=False)  # 1-5 stars (redundant with AchievementRating but useful for queries)
+    
+    # Review metadata
+    difficulty_vote = db.Column(db.String(20), nullable=True)  # 'easy', 'medium', 'hard', 'extreme'
+    time_to_complete = db.Column(db.String(50), nullable=True)  # User's estimate
+    tips_and_tricks = db.Column(db.Text, nullable=True)  # Optional helpful tips
+    
+    # Community engagement
+    helpful_votes = db.Column(db.Integer, default=0, nullable=False)
+    reported_count = db.Column(db.Integer, default=0, nullable=False)
+    is_featured = db.Column(db.Boolean, default=False, nullable=False)  # Admin can feature excellent reviews
+    
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    
+    # Relationships
+    user = db.relationship('User', backref='achievement_reviews')
+    shared_achievement = db.relationship('SharedAchievement', backref='reviews')
+    
+    # Constraints
+    __table_args__ = (
+        db.UniqueConstraint('user_id', 'shared_achievement_id', name='unique_user_achievement_review'),
+        db.CheckConstraint('rating >= 1 AND rating <= 5', name='valid_review_rating_range'),
+        db.CheckConstraint('difficulty_vote IS NULL OR difficulty_vote IN (\'easy\', \'medium\', \'hard\', \'extreme\')', name='valid_difficulty_vote'),
+        db.Index('idx_review_achievement', 'shared_achievement_id'),
+        db.Index('idx_review_rating', 'rating'),
+        db.Index('idx_review_helpful', 'helpful_votes'),
+    )
+    
+    def __repr__(self):
+        return f'<AchievementReview {self.user.username}:{self.shared_achievement.name}>'
+
+
 # Friendship utility functions
 def get_user_friends(user_id, status='accepted'):
     """Get all friends for a user with specified status"""

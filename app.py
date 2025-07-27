@@ -2216,6 +2216,82 @@ def admin_create_social_tables():
         }), 500
 
 
+@app.route('/admin/create-rating-tables')
+@login_required
+def admin_create_rating_tables():
+    """Admin route to create achievement rating and review tables"""
+    if current_user.username != 'admin':
+        return jsonify({'success': False, 'message': 'Admin access required'}), 403
+        
+    try:
+        # Create the achievement_ratings table
+        ratings_sql = """
+        CREATE TABLE IF NOT EXISTS achievement_ratings (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            shared_achievement_id INTEGER NOT NULL REFERENCES shared_achievements(id) ON DELETE CASCADE,
+            rating INTEGER NOT NULL,
+            created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
+            
+            CONSTRAINT unique_user_achievement_rating UNIQUE (user_id, shared_achievement_id),
+            CONSTRAINT valid_rating_range CHECK (rating >= 1 AND rating <= 5)
+        );
+        
+        CREATE INDEX IF NOT EXISTS idx_rating_achievement ON achievement_ratings(shared_achievement_id, rating);
+        CREATE INDEX IF NOT EXISTS idx_rating_user ON achievement_ratings(user_id);
+        CREATE INDEX IF NOT EXISTS idx_rating_created ON achievement_ratings(created_at);
+        """
+        
+        # Create the achievement_reviews table
+        reviews_sql = """
+        CREATE TABLE IF NOT EXISTS achievement_reviews (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            shared_achievement_id INTEGER NOT NULL REFERENCES shared_achievements(id) ON DELETE CASCADE,
+            title VARCHAR(255) NOT NULL,
+            content TEXT NOT NULL,
+            rating INTEGER NOT NULL,
+            difficulty_vote VARCHAR(20),
+            time_to_complete VARCHAR(50),
+            tips_and_tricks TEXT,
+            helpful_votes INTEGER NOT NULL DEFAULT 0,
+            reported_count INTEGER NOT NULL DEFAULT 0,
+            is_featured BOOLEAN NOT NULL DEFAULT FALSE,
+            created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
+            
+            CONSTRAINT unique_user_achievement_review UNIQUE (user_id, shared_achievement_id),
+            CONSTRAINT valid_review_rating_range CHECK (rating >= 1 AND rating <= 5),
+            CONSTRAINT valid_difficulty_vote CHECK (difficulty_vote IS NULL OR difficulty_vote IN ('easy', 'medium', 'hard', 'extreme'))
+        );
+        
+        CREATE INDEX IF NOT EXISTS idx_review_achievement ON achievement_reviews(shared_achievement_id);
+        CREATE INDEX IF NOT EXISTS idx_review_user ON achievement_reviews(user_id);
+        CREATE INDEX IF NOT EXISTS idx_review_rating ON achievement_reviews(rating);
+        CREATE INDEX IF NOT EXISTS idx_review_helpful ON achievement_reviews(helpful_votes DESC);
+        """
+        
+        # Execute table creation
+        db.session.execute(db.text(ratings_sql))
+        db.session.execute(db.text(reviews_sql))
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': '✅ Achievement rating and review tables created successfully!',
+            'tables_created': ['achievement_ratings', 'achievement_reviews'],
+            'features_enabled': ['Achievement ratings', 'Achievement reviews', 'Community feedback']
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'❌ Error creating rating/review tables: {str(e)}'
+        }), 500
+
+
 # ========================================
 # USER COLLECTION ROUTES
 # ========================================
