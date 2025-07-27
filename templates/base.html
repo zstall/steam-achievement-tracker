@@ -56,55 +56,150 @@
             border-radius: 8px; 
             border: 2px solid #417a9b; 
         }
+        
+        /* Navigation styling */
+        .navbar-nav .nav-link {
+            color: #c7d5e0 !important;
+            font-weight: 500;
+            padding: 0.5rem 1rem !important;
+        }
+        .navbar-nav .nav-link:hover {
+            color: #66c0f4 !important;
+        }
+        .dropdown-menu {
+            background-color: #2a475e !important;
+            border: 1px solid #417a9b !important;
+            border-radius: 8px !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+        }
+        .dropdown-item {
+            color: #c7d5e0 !important;
+            padding: 0.5rem 1rem !important;
+        }
+        .dropdown-item:hover, .dropdown-item:focus {
+            background-color: #417a9b !important;
+            color: #ffffff !important;
+        }
+        .dropdown-header {
+            color: #66c0f4 !important;
+            font-weight: 600 !important;
+            text-transform: uppercase !important;
+            font-size: 0.75rem !important;
+        }
+        .dropdown-divider {
+            border-color: #417a9b !important;
+        }
+        .text-danger {
+            color: #ff6b6b !important;
+        }
+        
+        /* Mobile navbar styling */
+        .navbar-toggler {
+            border-color: #417a9b !important;
+        }
+        .navbar-toggler:focus {
+            box-shadow: 0 0 0 0.2rem rgba(102, 192, 244, 0.25) !important;
+        }
+        .navbar-toggler-icon {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28199, 213, 224, 0.8%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='m4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e") !important;
+        }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-dark">
+    <nav class="navbar navbar-expand-lg navbar-dark">
         <div class="container">
             <a class="navbar-brand" href="{% if current_user.is_authenticated %}{{ url_for('index') }}{% else %}{{ url_for('login') }}{% endif %}">
                 <i class="fab fa-steam"></i> Steam Achievement Tracker
             </a>
+            
             {% if current_user.is_authenticated %}
-            <div>
-                <a href="{{ url_for('index') }}" class="btn btn-outline-primary btn-sm me-2">
-                    <i class="fas fa-gamepad"></i> Library
-                </a>
-                <a href="{{ url_for('custom_achievements') }}" class="btn btn-outline-warning btn-sm me-2">
-                    <i class="fas fa-trophy"></i> My Achievements
-                </a>
-                <a href="{{ url_for('community_achievements') }}" class="btn btn-outline-info btn-sm me-2">
-                    <i class="fas fa-users"></i> Community
-                </a>
-                <a href="{{ url_for('collections') }}" class="btn btn-outline-success btn-sm me-2">
-                    <i class="fas fa-folder-open"></i> Collections
-                </a>
-                <a href="{{ url_for('trophy_feed') }}" class="btn btn-outline-warning btn-sm me-2">
-                    <i class="fas fa-trophy"></i> Trophy Feed
-                </a>
-                <button class="btn btn-outline-info btn-sm me-2" onclick="refreshData()">
-                    <i class="fas fa-refresh"></i> Refresh Data
-                </button>
-                <a href="{{ url_for('profile') }}" class="btn btn-outline-secondary btn-sm me-2">
-                    <i class="fas fa-user-cog"></i> Profile
-                </a>
-                {% if current_user.username == 'admin' %}
-                <div class="dropdown me-2">
-                    <button class="btn btn-outline-warning btn-sm dropdown-toggle" type="button" id="adminDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-                        <i class="fas fa-shield-alt"></i> Admin
-                    </button>
-                    <ul class="dropdown-menu" aria-labelledby="adminDropdown">
-                        <li><a class="dropdown-item" href="{{ url_for('admin_users') }}">
-                            <i class="fas fa-users-cog"></i> User Management
-                        </a></li>
-                        <li><a class="dropdown-item" href="{{ url_for('admin_collections') }}">
-                            <i class="fas fa-folder-cog"></i> Collections
-                        </a></li>
-                    </ul>
-                </div>
-                {% endif %}
-                <a href="{{ url_for('logout') }}" class="btn btn-outline-danger btn-sm">
-                    <i class="fas fa-sign-out-alt"></i> Logout
-                </a>
+            <!-- Mobile hamburger toggle -->
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <!-- Navigation menu -->
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <!-- Gaming Section -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="gamingDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-gamepad"></i> Gaming
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="gamingDropdown">
+                            <li><a class="dropdown-item" href="{{ url_for('index') }}">
+                                <i class="fas fa-gamepad"></i> My Library
+                            </a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('custom_achievements') }}">
+                                <i class="fas fa-trophy"></i> My Achievements
+                            </a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('collections') }}">
+                                <i class="fas fa-folder-open"></i> Collections
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('trophy_feed') }}">
+                                <i class="fas fa-feed"></i> Trophy Feed
+                            </a></li>
+                        </ul>
+                    </li>
+                    
+                    <!-- Community Section -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="communityDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-users"></i> Community
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="communityDropdown">
+                            <li><a class="dropdown-item" href="{{ url_for('community_achievements') }}">
+                                <i class="fas fa-share-alt"></i> Browse Achievements
+                            </a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('collections') }}">
+                                <i class="fas fa-star"></i> Featured Collections
+                            </a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('trophy_feed') }}">
+                                <i class="fas fa-trophy"></i> Recent Activity
+                            </a></li>
+                        </ul>
+                    </li>
+                    
+                    <!-- Quick Actions -->
+                    <li class="nav-item">
+                        <button class="nav-link btn btn-link" onclick="refreshData()">
+                            <i class="fas fa-sync-alt"></i> <span class="d-lg-none">Refresh Data</span>
+                        </button>
+                    </li>
+                    
+                    <!-- Account Section -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="accountDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-user"></i> Account
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="accountDropdown">
+                            <li><h6 class="dropdown-header">
+                                <i class="fas fa-user-circle"></i> {{ current_user.username }}
+                            </h6></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{{ url_for('profile') }}">
+                                <i class="fas fa-user-cog"></i> Profile Settings
+                            </a></li>
+                            {% if current_user.username == 'admin' %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li><h6 class="dropdown-header">
+                                <i class="fas fa-shield-alt"></i> Admin Tools
+                            </h6></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin_users') }}">
+                                <i class="fas fa-users-cog"></i> User Management
+                            </a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('admin_collections') }}">
+                                <i class="fas fa-folder-cog"></i> Collection Management
+                            </a></li>
+                            {% endif %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-danger" href="{{ url_for('logout') }}">
+                                <i class="fas fa-sign-out-alt"></i> Logout
+                            </a></li>
+                        </ul>
+                    </li>
+                </ul>
             </div>
             {% endif %}
         </div>
@@ -118,30 +213,51 @@
     <script>
         // Initialize Bootstrap components when DOM is ready
         document.addEventListener('DOMContentLoaded', function() {
+            // Initialize navbar collapse for mobile
+            var navbarCollapse = document.getElementById('navbarNav');
+            if (navbarCollapse) {
+                new bootstrap.Collapse(navbarCollapse, { toggle: false });
+            }
+            
             // Initialize all dropdowns
             var dropdownElementList = [].slice.call(document.querySelectorAll('.dropdown-toggle'));
             var dropdownList = dropdownElementList.map(function (dropdownToggleEl) {
                 return new bootstrap.Dropdown(dropdownToggleEl);
             });
             
-            // Initialize all collapse components (for mobile hamburger menus)
-            var collapseElementList = [].slice.call(document.querySelectorAll('[data-bs-toggle="collapse"]'));
+            // Initialize other collapse components (for page-specific hamburger menus)
+            var collapseElementList = [].slice.call(document.querySelectorAll('[data-bs-toggle="collapse"]:not(.navbar-toggler)'));
             var collapseList = collapseElementList.map(function (collapseToggleEl) {
-                return new bootstrap.Collapse(collapseToggleEl.getAttribute('data-bs-target'), {
-                    toggle: false
+                var targetSelector = collapseToggleEl.getAttribute('data-bs-target');
+                var targetElement = document.querySelector(targetSelector);
+                if (targetElement) {
+                    return new bootstrap.Collapse(targetElement, { toggle: false });
+                }
+            }).filter(Boolean);
+            
+            // Auto-close mobile nav when clicking dropdown items
+            document.querySelectorAll('.navbar-nav .dropdown-item').forEach(function(item) {
+                item.addEventListener('click', function() {
+                    if (window.innerWidth < 992) { // Bootstrap lg breakpoint
+                        var navbar = bootstrap.Collapse.getInstance(navbarCollapse);
+                        if (navbar && navbarCollapse.classList.contains('show')) {
+                            navbar.hide();
+                        }
+                    }
                 });
             });
             
             // Debug: Log component initialization
-            console.log('Bootstrap components initialized:');
-            console.log('- Dropdowns:', dropdownList.length);
-            console.log('- Collapse elements:', collapseList.length);
+            console.log('Navigation components initialized:');
+            console.log('- Navbar collapse:', navbarCollapse ? 'Ready' : 'Not found');
+            console.log('- Dropdown menus:', dropdownList.length);
+            console.log('- Other collapse elements:', collapseList.length);
             
             // Test if Bootstrap is available
             if (typeof bootstrap === 'undefined') {
                 console.error('Bootstrap JavaScript not loaded!');
             } else {
-                console.log('Bootstrap version:', bootstrap);
+                console.log('Bootstrap loaded successfully');
             }
         });
         
