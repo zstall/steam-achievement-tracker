@@ -26,25 +26,111 @@
     {% endif %}
 {% endwith %}
 
+<!-- Enhanced Search & Filter Bar -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5><i class="fas fa-search"></i> Discovery & Search</h5>
+    </div>
+    <div class="card-body">
+        <!-- Main Search Bar -->
+        <div class="row mb-3">
+            <div class="col-md-8">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                    <input type="text" class="form-control" id="achievementSearch" 
+                           placeholder="Search by name, description, creator, or game..." 
+                           onkeyup="applyAllFilters()">
+                    <button class="btn btn-outline-secondary" type="button" onclick="clearSearch()">
+                        <i class="fas fa-times"></i> Clear
+                    </button>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-info btn-sm" onclick="showRecommendations()">
+                        <i class="fas fa-magic"></i> For You
+                    </button>
+                    <button class="btn btn-outline-warning btn-sm" onclick="showTrending()">
+                        <i class="fas fa-fire"></i> Trending
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Advanced Filters -->
+        <div class="row">
+            <div class="col-md-2">
+                <label class="form-label small">Sort By</label>
+                <select class="form-select form-select-sm" id="sortSelect" onchange="applyAllFilters()">
+                    <option value="popularity">Popularity</option>
+                    <option value="compatibility">Compatibility</option>
+                    <option value="newest">Newest</option>
+                    <option value="name">Name</option>
+                    <option value="creator">Creator</option>
+                    <option value="completion_rate">Success Rate</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small">Compatibility</label>
+                <select class="form-select form-select-sm" id="compatibilityFilter" onchange="applyAllFilters()">
+                    <option value="all">All Games</option>
+                    <option value="compatible">100% Compatible</option>
+                    <option value="mostly">75%+ Compatible</option>
+                    <option value="partial">Some Games</option>
+                    <option value="none">Missing Games</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small">Difficulty</label>
+                <select class="form-select form-select-sm" id="difficultyFilter" onchange="applyAllFilters()">
+                    <option value="all">All Levels</option>
+                    <option value="easy">Easy</option>
+                    <option value="medium">Medium</option>
+                    <option value="hard">Hard</option>
+                    <option value="extreme">Extreme</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small">Activity</label>
+                <select class="form-select form-select-sm" id="activityFilter" onchange="applyAllFilters()">
+                    <option value="all">All</option>
+                    <option value="popular">Popular (10+ tries)</option>
+                    <option value="successful">High Success (50%+ completion)</option>
+                    <option value="new">Recently Added</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small">Type</label>
+                <select class="form-select form-select-sm" id="typeFilter" onchange="applyAllFilters()">
+                    <option value="all">All Types</option>
+                    <option value="playtime">Playtime</option>
+                    <option value="achievement">Achievement</option>
+                    <option value="game_completion">Game Progress</option>
+                    <option value="custom">Custom Goals</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small">Status</label>
+                <select class="form-select form-select-sm" id="statusFilter" onchange="applyAllFilters()">
+                    <option value="all">All</option>
+                    <option value="available">Available</option>
+                    <option value="imported">Already Imported</option>
+                    <option value="yours">Your Achievements</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Results Summary -->
 <div class="row mb-3">
-    <div class="col-md-6">
-        <input type="text" class="form-control" id="achievementSearch" placeholder="Search community achievements..." onkeyup="filterAchievements()">
+    <div class="col-md-8">
+        <div id="resultsCount" class="text-muted">
+            <i class="fas fa-trophy"></i> Showing all community achievements
+        </div>
     </div>
-    <div class="col-md-3">
-        <select class="form-select" id="sortSelect" onchange="sortAchievements()">
-            <option value="popularity">Sort by Popularity</option>
-            <option value="compatibility">Sort by Compatibility</option>
-            <option value="name">Sort by Name</option>
-            <option value="creator">Sort by Creator</option>
-        </select>
-    </div>
-    <div class="col-md-3">
-        <select class="form-select" id="filterSelect" onchange="filterByCompatibility()">
-            <option value="all">All Achievements</option>
-            <option value="compatible">100% Compatible</option>
-            <option value="mostly">75%+ Compatible</option>
-            <option value="partial">Some Games Owned</option>
-        </select>
+    <div class="col-md-4 text-end">
+        <div id="activeFilters" class="small"></div>
     </div>
 </div>
 
@@ -55,7 +141,11 @@
          data-name="{{ achievement.name|lower }}" 
          data-creator="{{ achievement.creator|lower }}"
          data-popularity="{{ achievement.tries + achievement.completions }}"
-         data-compatibility="{{ achievement.compatibility }}">
+         data-compatibility="{{ achievement.compatibility }}"
+         data-shared-date="{{ achievement.shared_date }}"
+         data-condition-type="{{ achievement.condition_type }}"
+         data-tries="{{ achievement.tries }}"
+         data-completions="{{ achievement.completions }}">
         <div class="card h-100">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <div class="d-flex align-items-center">
@@ -225,62 +315,276 @@
 </div>
 
 <script>
-function filterAchievements() {
+// ========================================
+// ENHANCED SEARCH & FILTER SYSTEM
+// ========================================
+
+let allAchievements = [];
+let filteredAchievements = [];
+let currentRecommendations = [];
+
+// Initialize achievements data on page load
+document.addEventListener('DOMContentLoaded', function() {
+    initializeAchievements();
+    applyAllFilters();
+});
+
+function initializeAchievements() {
+    const achievements = document.querySelectorAll('.achievement-item');
+    allAchievements = Array.from(achievements).map(item => ({
+        element: item,
+        name: item.getAttribute('data-name').toLowerCase(),
+        creator: item.getAttribute('data-creator').toLowerCase(),
+        description: item.querySelector('.card-text').textContent.toLowerCase(),
+        compatibility: parseFloat(item.getAttribute('data-compatibility')),
+        popularity: parseInt(item.getAttribute('data-popularity')),
+        tries: parseInt(item.getAttribute('data-tries') || '0'),
+        completions: parseInt(item.getAttribute('data-completions') || '0'),
+        isImported: item.querySelector('.btn-secondary[disabled]') !== null,
+        isYours: item.querySelector('.badge.bg-primary') !== null,
+        // Get data from attributes for better performance
+        conditionType: item.getAttribute('data-condition-type') || 'custom',
+        difficultyLevel: estimateDifficulty(item),
+        sharedDate: new Date(item.getAttribute('data-shared-date') || Date.now())
+    }));
+}
+
+function extractConditionType(item) {
+    const description = item.querySelector('.card-text').textContent.toLowerCase();
+    if (description.includes('playtime') || description.includes('hours')) return 'playtime';
+    if (description.includes('achievement')) return 'achievement';
+    if (description.includes('complete') || description.includes('finish')) return 'game_completion';
+    return 'custom';
+}
+
+function estimateDifficulty(item) {
+    const tries = parseInt(item.getAttribute('data-tries') || '0');
+    const completions = parseInt(item.getAttribute('data-completions') || '0');
+    const successRate = tries > 0 ? (completions / tries) * 100 : 0;
+    
+    if (successRate >= 75) return 'easy';
+    if (successRate >= 50) return 'medium';
+    if (successRate >= 25) return 'hard';
+    return 'extreme';
+}
+
+function applyAllFilters() {
     const searchTerm = document.getElementById('achievementSearch').value.toLowerCase();
-    const achievements = document.querySelectorAll('.achievement-item');
-    
-    achievements.forEach(item => {
-        const name = item.getAttribute('data-name');
-        const creator = item.getAttribute('data-creator');
-        const description = item.querySelector('.card-text').textContent.toLowerCase();
-        
-        if (name.includes(searchTerm) || creator.includes(searchTerm) || description.includes(searchTerm)) {
-            item.style.display = '';
-        } else {
-            item.style.display = 'none';
-        }
-    });
-}
-
-function sortAchievements() {
     const sortBy = document.getElementById('sortSelect').value;
-    const container = document.getElementById('achievementsContainer');
-    const items = Array.from(container.querySelectorAll('.achievement-item'));
+    const compatibilityFilter = document.getElementById('compatibilityFilter').value;
+    const difficultyFilter = document.getElementById('difficultyFilter').value;
+    const activityFilter = document.getElementById('activityFilter').value;
+    const typeFilter = document.getElementById('typeFilter').value;
+    const statusFilter = document.getElementById('statusFilter').value;
     
-    items.sort((a, b) => {
-        if (sortBy === 'popularity') {
-            return parseInt(b.getAttribute('data-popularity')) - parseInt(a.getAttribute('data-popularity'));
-        } else if (sortBy === 'compatibility') {
-            return parseFloat(b.getAttribute('data-compatibility')) - parseFloat(a.getAttribute('data-compatibility'));
-        } else if (sortBy === 'name') {
-            return a.getAttribute('data-name').localeCompare(b.getAttribute('data-name'));
-        } else if (sortBy === 'creator') {
-            return a.getAttribute('data-creator').localeCompare(b.getAttribute('data-creator'));
-        }
-    });
+    // Start with all achievements
+    filteredAchievements = [...allAchievements];
     
-    items.forEach(item => container.appendChild(item));
+    // Apply search filter
+    if (searchTerm) {
+        filteredAchievements = filteredAchievements.filter(ach => 
+            ach.name.includes(searchTerm) || 
+            ach.creator.includes(searchTerm) || 
+            ach.description.includes(searchTerm)
+        );
+    }
+    
+    // Apply compatibility filter
+    if (compatibilityFilter !== 'all') {
+        filteredAchievements = filteredAchievements.filter(ach => {
+            switch (compatibilityFilter) {
+                case 'compatible': return ach.compatibility === 100;
+                case 'mostly': return ach.compatibility >= 75;
+                case 'partial': return ach.compatibility > 0 && ach.compatibility < 75;
+                case 'none': return ach.compatibility === 0;
+                default: return true;
+            }
+        });
+    }
+    
+    // Apply difficulty filter
+    if (difficultyFilter !== 'all') {
+        filteredAchievements = filteredAchievements.filter(ach => ach.difficultyLevel === difficultyFilter);
+    }
+    
+    // Apply activity filter
+    if (activityFilter !== 'all') {
+        filteredAchievements = filteredAchievements.filter(ach => {
+            const successRate = ach.tries > 0 ? (ach.completions / ach.tries) * 100 : 0;
+            switch (activityFilter) {
+                case 'popular': return ach.tries >= 10;
+                case 'successful': return successRate >= 50;
+                case 'new': return (Date.now() - ach.sharedDate) < (7 * 24 * 60 * 60 * 1000); // Last week
+                default: return true;
+            }
+        });
+    }
+    
+    // Apply type filter
+    if (typeFilter !== 'all') {
+        filteredAchievements = filteredAchievements.filter(ach => ach.conditionType === typeFilter);
+    }
+    
+    // Apply status filter
+    if (statusFilter !== 'all') {
+        filteredAchievements = filteredAchievements.filter(ach => {
+            switch (statusFilter) {
+                case 'available': return !ach.isImported && !ach.isYours;
+                case 'imported': return ach.isImported;
+                case 'yours': return ach.isYours;
+                default: return true;
+            }
+        });
+    }
+    
+    // Apply sorting
+    sortFilteredAchievements(sortBy);
+    
+    // Update display
+    updateAchievementDisplay();
+    updateResultsCount();
+    updateActiveFilters();
 }
 
-function filterByCompatibility() {
-    const filter = document.getElementById('filterSelect').value;
-    const achievements = document.querySelectorAll('.achievement-item');
-    
-    achievements.forEach(item => {
-        const compatibility = parseFloat(item.getAttribute('data-compatibility'));
-        
-        let show = true;
-        if (filter === 'compatible' && compatibility < 100) {
-            show = false;
-        } else if (filter === 'mostly' && compatibility < 75) {
-            show = false;
-        } else if (filter === 'partial' && compatibility === 0) {
-            show = false;
+function sortFilteredAchievements(sortBy) {
+    filteredAchievements.sort((a, b) => {
+        switch (sortBy) {
+            case 'popularity':
+                return b.popularity - a.popularity;
+            case 'compatibility':
+                return b.compatibility - a.compatibility;
+            case 'newest':
+                return b.sharedDate - a.sharedDate;
+            case 'name':
+                return a.name.localeCompare(b.name);
+            case 'creator':
+                return a.creator.localeCompare(b.creator);
+            case 'completion_rate':
+                const rateA = a.tries > 0 ? (a.completions / a.tries) : 0;
+                const rateB = b.tries > 0 ? (b.completions / b.tries) : 0;
+                return rateB - rateA;
+            default:
+                return 0;
         }
-        
-        item.style.display = show ? '' : 'none';
     });
 }
+
+function updateAchievementDisplay() {
+    const container = document.getElementById('achievementsContainer');
+    
+    // Hide all achievements first
+    allAchievements.forEach(ach => {
+        ach.element.style.display = 'none';
+    });
+    
+    // Show and reorder filtered achievements
+    filteredAchievements.forEach((ach, index) => {
+        ach.element.style.display = '';
+        container.appendChild(ach.element);
+    });
+}
+
+function updateResultsCount() {
+    const resultsCount = document.getElementById('resultsCount');
+    const total = allAchievements.length;
+    const shown = filteredAchievements.length;
+    
+    if (shown === total) {
+        resultsCount.innerHTML = `<i class="fas fa-trophy"></i> Showing all ${total} community achievements`;
+    } else {
+        resultsCount.innerHTML = `<i class="fas fa-filter"></i> Showing ${shown} of ${total} achievements`;
+    }
+}
+
+function updateActiveFilters() {
+    const activeFilters = document.getElementById('activeFilters');
+    const filters = [];
+    
+    const searchTerm = document.getElementById('achievementSearch').value;
+    if (searchTerm) filters.push(`Search: "${searchTerm}"`);
+    
+    const compatibility = document.getElementById('compatibilityFilter').value;
+    if (compatibility !== 'all') filters.push(`Compatibility: ${compatibility}`);
+    
+    const difficulty = document.getElementById('difficultyFilter').value;
+    if (difficulty !== 'all') filters.push(`Difficulty: ${difficulty}`);
+    
+    const activity = document.getElementById('activityFilter').value;
+    if (activity !== 'all') filters.push(`Activity: ${activity}`);
+    
+    const type = document.getElementById('typeFilter').value;
+    if (type !== 'all') filters.push(`Type: ${type}`);
+    
+    const status = document.getElementById('statusFilter').value;
+    if (status !== 'all') filters.push(`Status: ${status}`);
+    
+    if (filters.length > 0) {
+        activeFilters.innerHTML = `<i class="fas fa-filter text-info"></i> ${filters.join(' • ')}`;
+    } else {
+        activeFilters.innerHTML = '';
+    }
+}
+
+function clearSearch() {
+    document.getElementById('achievementSearch').value = '';
+    document.getElementById('sortSelect').value = 'popularity';
+    document.getElementById('compatibilityFilter').value = 'all';
+    document.getElementById('difficultyFilter').value = 'all';
+    document.getElementById('activityFilter').value = 'all';
+    document.getElementById('typeFilter').value = 'all';
+    document.getElementById('statusFilter').value = 'all';
+    applyAllFilters();
+}
+
+function showRecommendations() {
+    // Generate recommendations based on user's library compatibility
+    const recommendations = [...allAchievements]
+        .filter(ach => ach.compatibility >= 75 && !ach.isImported && !ach.isYours)
+        .sort((a, b) => b.compatibility - a.compatibility)
+        .slice(0, 10);
+    
+    if (recommendations.length === 0) {
+        showNotification('No recommendations available. Try importing more games!', 'info');
+        return;
+    }
+    
+    // Apply recommendation filter
+    filteredAchievements = recommendations;
+    updateAchievementDisplay();
+    updateResultsCount();
+    
+    document.getElementById('activeFilters').innerHTML = 
+        `<i class="fas fa-magic text-info"></i> Personalized recommendations based on your library`;
+    
+    showNotification(`Found ${recommendations.length} achievements perfect for your library!`, 'success');
+}
+
+function showTrending() {
+    // Show trending achievements (popular in last 30 days)
+    const trending = [...allAchievements]
+        .filter(ach => ach.popularity >= 5) // Has some activity
+        .sort((a, b) => b.popularity - a.popularity)
+        .slice(0, 20);
+    
+    if (trending.length === 0) {
+        showNotification('No trending achievements found.', 'info');
+        return;
+    }
+    
+    filteredAchievements = trending;
+    updateAchievementDisplay();
+    updateResultsCount();
+    
+    document.getElementById('activeFilters').innerHTML = 
+        `<i class="fas fa-fire text-warning"></i> Trending achievements by popularity`;
+    
+    showNotification(`Showing ${trending.length} trending achievements!`, 'success');
+}
+
+// Backward compatibility for existing functions
+function filterAchievements() { applyAllFilters(); }
+function sortAchievements() { applyAllFilters(); }
+function filterByCompatibility() { applyAllFilters(); }
 
 function deleteSharedAchievement(sharedId, achievementName, isAdmin) {
     const actionType = isAdmin ? 'remove this achievement from the community' : 'delete your shared achievement';
