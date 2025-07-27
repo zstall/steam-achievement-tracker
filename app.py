@@ -1800,8 +1800,8 @@ def admin_manage_collection(collection_id):
     # Also get custom achievements that could be promoted to shared
     available_custom_achievements = CustomAchievement.query.filter(
         ~CustomAchievement.id.in_(
-            db.session.query(SharedAchievement.custom_achievement_id)
-            .filter(SharedAchievement.custom_achievement_id.isnot(None))
+            db.session.query(SharedAchievement.original_achievement_id)
+            .filter(SharedAchievement.original_achievement_id.isnot(None))
         )
     ).order_by(CustomAchievement.name).limit(50).all()  # Limit to 50 for performance
     
@@ -1889,7 +1889,7 @@ def admin_add_custom_achievement_to_collection(collection_id):
         
         # Check if this custom achievement is already promoted to shared
         existing_shared = SharedAchievement.query.filter_by(
-            custom_achievement_id=custom_achievement_id
+            original_achievement_id=custom_achievement_id
         ).first()
         
         if existing_shared:
@@ -1900,11 +1900,14 @@ def admin_add_custom_achievement_to_collection(collection_id):
             shared_achievement = SharedAchievement(
                 name=custom_achievement.name,
                 description=custom_achievement.description,
-                custom_achievement_id=custom_achievement.id,
+                original_achievement_id=custom_achievement.id,
+                creator_id=custom_achievement.user_id,
                 original_creator_username=custom_achievement.user.username,
+                condition_type=custom_achievement.condition_type,
+                condition_data=custom_achievement.condition_data,
                 image_filename=custom_achievement.image_filename,
                 is_active=True,
-                created_at=db.func.current_timestamp()
+                shared_at=db.func.current_timestamp()
             )
             db.session.add(shared_achievement)
             db.session.flush()  # Get the ID
