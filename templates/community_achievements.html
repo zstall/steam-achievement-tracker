@@ -28,95 +28,146 @@
 
 <!-- Enhanced Search & Filter Bar -->
 <div class="card mb-4">
-    <div class="card-header">
-        <h5><i class="fas fa-search"></i> Discovery & Search</h5>
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="fas fa-search"></i> Discovery & Search</h5>
+        <!-- Mobile Filter Toggle -->
+        <button class="btn btn-outline-secondary d-md-none" type="button" data-bs-toggle="collapse" 
+                data-bs-target="#advancedFilters" aria-expanded="false" aria-controls="advancedFilters">
+            <i class="fas fa-sliders-h"></i> Filters
+        </button>
     </div>
     <div class="card-body">
         <!-- Main Search Bar -->
         <div class="row mb-3">
-            <div class="col-md-8">
+            <div class="col-lg-8 col-md-7 mb-2 mb-md-0">
                 <div class="input-group">
                     <span class="input-group-text"><i class="fas fa-search"></i></span>
                     <input type="text" class="form-control" id="achievementSearch" 
                            placeholder="Search by name, description, creator, or game..." 
                            onkeyup="applyAllFilters()">
                     <button class="btn btn-outline-secondary" type="button" onclick="clearSearch()">
-                        <i class="fas fa-times"></i> Clear
+                        <i class="fas fa-times"></i><span class="d-none d-sm-inline"> Clear</span>
                     </button>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="d-flex gap-2">
-                    <button class="btn btn-outline-info btn-sm" onclick="showRecommendations()">
-                        <i class="fas fa-magic"></i> For You
+            <div class="col-lg-4 col-md-5">
+                <div class="d-flex gap-2 flex-wrap">
+                    <button class="btn btn-outline-info btn-sm flex-fill" onclick="showRecommendations()">
+                        <i class="fas fa-magic"></i><span class="d-none d-sm-inline"> For You</span>
                     </button>
-                    <button class="btn btn-outline-warning btn-sm" onclick="showTrending()">
-                        <i class="fas fa-fire"></i> Trending
+                    <button class="btn btn-outline-warning btn-sm flex-fill" onclick="showTrending()">
+                        <i class="fas fa-fire"></i><span class="d-none d-sm-inline"> Trending</span>
                     </button>
+                    <!-- Mobile Sort Dropdown -->
+                    <div class="dropdown d-md-none">
+                        <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" 
+                                data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-sort"></i>
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="#" onclick="setSortAndFilter('popularity')">
+                                <i class="fas fa-star"></i> Popularity</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="setSortAndFilter('compatibility')">
+                                <i class="fas fa-check-circle"></i> Compatibility</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="setSortAndFilter('newest')">
+                                <i class="fas fa-clock"></i> Newest</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="setSortAndFilter('name')">
+                                <i class="fas fa-sort-alpha-down"></i> Name</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="setSortAndFilter('creator')">
+                                <i class="fas fa-user"></i> Creator</a></li>
+                            <li><a class="dropdown-item" href="#" onclick="setSortAndFilter('completion_rate')">
+                                <i class="fas fa-trophy"></i> Success Rate</a></li>
+                        </ul>
+                    </div>
                 </div>
             </div>
         </div>
         
-        <!-- Advanced Filters -->
-        <div class="row">
-            <div class="col-md-2">
-                <label class="form-label small">Sort By</label>
-                <select class="form-select form-select-sm" id="sortSelect" onchange="applyAllFilters()">
-                    <option value="popularity">Popularity</option>
-                    <option value="compatibility">Compatibility</option>
-                    <option value="newest">Newest</option>
-                    <option value="name">Name</option>
-                    <option value="creator">Creator</option>
-                    <option value="completion_rate">Success Rate</option>
-                </select>
+        <!-- Advanced Filters - Collapsible on Mobile -->
+        <div class="collapse d-md-block" id="advancedFilters">
+            <div class="border-top pt-3 d-md-none mb-3"></div>
+            <div class="row g-2">
+                <div class="col-lg-2 col-md-4 col-6 d-none d-md-block">
+                    <label class="form-label small">Sort By</label>
+                    <select class="form-select form-select-sm" id="sortSelect" onchange="applyAllFilters()">
+                        <option value="popularity">Popularity</option>
+                        <option value="compatibility">Compatibility</option>
+                        <option value="newest">Newest</option>
+                        <option value="name">Name</option>
+                        <option value="creator">Creator</option>
+                        <option value="completion_rate">Success Rate</option>
+                    </select>
+                </div>
+                <div class="col-lg-2 col-md-4 col-6">
+                    <label class="form-label small">Compatibility</label>
+                    <select class="form-select form-select-sm" id="compatibilityFilter" onchange="applyAllFilters()">
+                        <option value="all">All Games</option>
+                        <option value="compatible">100% Compatible</option>
+                        <option value="mostly">75%+ Compatible</option>
+                        <option value="partial">Some Games</option>
+                        <option value="none">Missing Games</option>
+                    </select>
+                </div>
+                <div class="col-lg-2 col-md-4 col-6">
+                    <label class="form-label small">Difficulty</label>
+                    <select class="form-select form-select-sm" id="difficultyFilter" onchange="applyAllFilters()">
+                        <option value="all">All Levels</option>
+                        <option value="easy">Easy</option>
+                        <option value="medium">Medium</option>
+                        <option value="hard">Hard</option>
+                        <option value="extreme">Extreme</option>
+                    </select>
+                </div>
+                <div class="col-lg-2 col-md-6 col-6">
+                    <label class="form-label small">Activity</label>
+                    <select class="form-select form-select-sm" id="activityFilter" onchange="applyAllFilters()">
+                        <option value="all">All</option>
+                        <option value="popular">Popular</option>
+                        <option value="successful">High Success</option>
+                        <option value="new">Recent</option>
+                    </select>
+                </div>
+                <div class="col-lg-2 col-md-6 col-6">
+                    <label class="form-label small">Type</label>
+                    <select class="form-select form-select-sm" id="typeFilter" onchange="applyAllFilters()">
+                        <option value="all">All Types</option>
+                        <option value="playtime">Playtime</option>
+                        <option value="achievement">Achievement</option>
+                        <option value="game_completion">Game Progress</option>
+                        <option value="custom">Custom</option>
+                    </select>
+                </div>
+                <div class="col-lg-2 col-md-6 col-6">
+                    <label class="form-label small">Status</label>
+                    <select class="form-select form-select-sm" id="statusFilter" onchange="applyAllFilters()">
+                        <option value="all">All</option>
+                        <option value="available">Available</option>
+                        <option value="imported">Imported</option>
+                        <option value="yours">Yours</option>
+                    </select>
+                </div>
             </div>
-            <div class="col-md-2">
-                <label class="form-label small">Compatibility</label>
-                <select class="form-select form-select-sm" id="compatibilityFilter" onchange="applyAllFilters()">
-                    <option value="all">All Games</option>
-                    <option value="compatible">100% Compatible</option>
-                    <option value="mostly">75%+ Compatible</option>
-                    <option value="partial">Some Games</option>
-                    <option value="none">Missing Games</option>
-                </select>
-            </div>
-            <div class="col-md-2">
-                <label class="form-label small">Difficulty</label>
-                <select class="form-select form-select-sm" id="difficultyFilter" onchange="applyAllFilters()">
-                    <option value="all">All Levels</option>
-                    <option value="easy">Easy</option>
-                    <option value="medium">Medium</option>
-                    <option value="hard">Hard</option>
-                    <option value="extreme">Extreme</option>
-                </select>
-            </div>
-            <div class="col-md-2">
-                <label class="form-label small">Activity</label>
-                <select class="form-select form-select-sm" id="activityFilter" onchange="applyAllFilters()">
-                    <option value="all">All</option>
-                    <option value="popular">Popular (10+ tries)</option>
-                    <option value="successful">High Success (50%+ completion)</option>
-                    <option value="new">Recently Added</option>
-                </select>
-            </div>
-            <div class="col-md-2">
-                <label class="form-label small">Type</label>
-                <select class="form-select form-select-sm" id="typeFilter" onchange="applyAllFilters()">
-                    <option value="all">All Types</option>
-                    <option value="playtime">Playtime</option>
-                    <option value="achievement">Achievement</option>
-                    <option value="game_completion">Game Progress</option>
-                    <option value="custom">Custom Goals</option>
-                </select>
-            </div>
-            <div class="col-md-2">
-                <label class="form-label small">Status</label>
-                <select class="form-select form-select-sm" id="statusFilter" onchange="applyAllFilters()">
-                    <option value="all">All</option>
-                    <option value="available">Available</option>
-                    <option value="imported">Already Imported</option>
-                    <option value="yours">Your Achievements</option>
-                </select>
+            
+            <!-- Mobile Quick Filters -->
+            <div class="d-md-none mt-3">
+                <div class="row g-2">
+                    <div class="col-12">
+                        <div class="btn-group w-100" role="group">
+                            <button type="button" class="btn btn-outline-success btn-sm" onclick="applyQuickFilter('compatible')">
+                                <i class="fas fa-check"></i> Compatible
+                            </button>
+                            <button type="button" class="btn btn-outline-info btn-sm" onclick="applyQuickFilter('easy')">
+                                <i class="fas fa-smile"></i> Easy
+                            </button>
+                            <button type="button" class="btn btn-outline-warning btn-sm" onclick="applyQuickFilter('popular')">
+                                <i class="fas fa-star"></i> Popular
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="clearSearch()">
+                                <i class="fas fa-undo"></i> Reset
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -137,7 +188,7 @@
 {% if achievements %}
 <div class="row" id="achievementsContainer">
     {% for achievement in achievements %}
-    <div class="col-md-6 mb-4 achievement-item" 
+    <div class="col-lg-6 col-md-12 mb-4 achievement-item" 
          data-name="{{ achievement.name|lower }}" 
          data-creator="{{ achievement.creator|lower }}"
          data-popularity="{{ achievement.tries + achievement.completions }}"
@@ -580,6 +631,60 @@ function showTrending() {
     
     showNotification(`Showing ${trending.length} trending achievements!`, 'success');
 }
+
+// ========================================
+// MOBILE RESPONSIVE FUNCTIONS
+// ========================================
+
+function setSortAndFilter(sortValue) {
+    document.getElementById('sortSelect').value = sortValue;
+    applyAllFilters();
+    
+    // Close dropdown after selection
+    const dropdown = bootstrap.Dropdown.getInstance(document.querySelector('.dropdown-toggle'));
+    if (dropdown) dropdown.hide();
+}
+
+function applyQuickFilter(filterType) {
+    // Reset all filters first
+    clearSearch();
+    
+    // Apply specific quick filter
+    switch (filterType) {
+        case 'compatible':
+            document.getElementById('compatibilityFilter').value = 'compatible';
+            break;
+        case 'easy':
+            document.getElementById('difficultyFilter').value = 'easy';
+            break;
+        case 'popular':
+            document.getElementById('activityFilter').value = 'popular';
+            break;
+    }
+    
+    applyAllFilters();
+    showNotification(`Applied ${filterType} filter`, 'success');
+}
+
+// Auto-collapse mobile filters after selection
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-close mobile filters when a filter is changed
+    const filterSelects = document.querySelectorAll('#advancedFilters select');
+    filterSelects.forEach(select => {
+        select.addEventListener('change', function() {
+            // On mobile, auto-collapse filters after 2 seconds
+            if (window.innerWidth < 768) {
+                setTimeout(() => {
+                    const collapseElement = document.getElementById('advancedFilters');
+                    const collapse = bootstrap.Collapse.getInstance(collapseElement);
+                    if (collapse && collapseElement.classList.contains('show')) {
+                        collapse.hide();
+                    }
+                }, 2000);
+            }
+        });
+    });
+});
 
 // Backward compatibility for existing functions
 function filterAchievements() { applyAllFilters(); }
