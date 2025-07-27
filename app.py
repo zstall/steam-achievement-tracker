@@ -2520,8 +2520,7 @@ def send_friend_request(user_id):
         friendship = UserFriendship(
             user_id=current_user.id,
             friend_id=user_id,
-            initiated_by=current_user.id,
-            request_message=request.json.get('message', '') if request.json else ''
+            status='pending'
         )
         
         db.session.add(friendship)
