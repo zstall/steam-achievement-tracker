@@ -1916,6 +1916,98 @@ def admin_delete_collection(collection_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/admin/create-collection-tables')
+def admin_create_collection_tables():
+    """Admin route to create collection tables manually"""
+    try:
+        # Create the new collection tables with raw SQL
+        collection_sql = """
+        CREATE TABLE IF NOT EXISTS achievement_collections (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            description TEXT NOT NULL,
+            collection_type VARCHAR(50) NOT NULL DEFAULT 'seasonal',
+            difficulty_level VARCHAR(20) NOT NULL DEFAULT 'medium',
+            estimated_time VARCHAR(50),
+            banner_image VARCHAR(255),
+            icon_image VARCHAR(255),
+            color_theme VARCHAR(20) DEFAULT 'primary',
+            is_active BOOLEAN NOT NULL DEFAULT TRUE,
+            is_featured BOOLEAN NOT NULL DEFAULT FALSE,
+            start_date TIMESTAMP WITHOUT TIME ZONE,
+            end_date TIMESTAMP WITHOUT TIME ZONE,
+            views_count INTEGER NOT NULL DEFAULT 0,
+            participants_count INTEGER NOT NULL DEFAULT 0,
+            completions_count INTEGER NOT NULL DEFAULT 0,
+            created_by INTEGER NOT NULL REFERENCES users(id),
+            created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW()
+        );
+        
+        CREATE INDEX IF NOT EXISTS idx_collection_name ON achievement_collections(name);
+        CREATE INDEX IF NOT EXISTS idx_collection_active_featured ON achievement_collections(is_active, is_featured);
+        CREATE INDEX IF NOT EXISTS idx_collection_type_active ON achievement_collections(collection_type, is_active);
+        CREATE INDEX IF NOT EXISTS idx_collection_dates ON achievement_collections(start_date, end_date);
+        """
+        
+        collection_items_sql = """
+        CREATE TABLE IF NOT EXISTS collection_items (
+            id SERIAL PRIMARY KEY,
+            collection_id INTEGER NOT NULL REFERENCES achievement_collections(id) ON DELETE CASCADE,
+            shared_achievement_id INTEGER NOT NULL REFERENCES shared_achievements(id) ON DELETE CASCADE,
+            order_index INTEGER NOT NULL DEFAULT 0,
+            is_required BOOLEAN NOT NULL DEFAULT TRUE,
+            point_value INTEGER NOT NULL DEFAULT 10,
+            unlock_condition VARCHAR(50),
+            added_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
+            added_by INTEGER NOT NULL REFERENCES users(id),
+            UNIQUE(collection_id, shared_achievement_id)
+        );
+        
+        CREATE INDEX IF NOT EXISTS idx_collection_order ON collection_items(collection_id, order_index);
+        """
+        
+        user_progress_sql = """
+        CREATE TABLE IF NOT EXISTS user_collection_progress (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            collection_id INTEGER NOT NULL REFERENCES achievement_collections(id) ON DELETE CASCADE,
+            achievements_completed INTEGER NOT NULL DEFAULT 0,
+            total_achievements INTEGER NOT NULL DEFAULT 0,
+            points_earned INTEGER NOT NULL DEFAULT 0,
+            total_points INTEGER NOT NULL DEFAULT 0,
+            status VARCHAR(20) NOT NULL DEFAULT 'in_progress',
+            started_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
+            completed_at TIMESTAMP WITHOUT TIME ZONE,
+            last_activity TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
+            progress_data JSON,
+            UNIQUE(user_id, collection_id)
+        );
+        
+        CREATE INDEX IF NOT EXISTS idx_user_collection_status ON user_collection_progress(user_id, status);
+        CREATE INDEX IF NOT EXISTS idx_collection_progress ON user_collection_progress(collection_id, status);
+        """
+        
+        # Execute all table creation statements
+        db.session.execute(db.text(collection_sql))
+        db.session.execute(db.text(collection_items_sql))
+        db.session.execute(db.text(user_progress_sql))
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': '✅ Collection tables created successfully!',
+            'tables_created': ['achievement_collections', 'collection_items', 'user_collection_progress']
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'❌ Error creating collection tables: {str(e)}'
+        }), 500
+
+
 # ========================================
 # USER COLLECTION ROUTES
 # ========================================
