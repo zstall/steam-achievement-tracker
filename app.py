@@ -19,7 +19,7 @@ from collections import defaultdict
 
 # Import our models and configuration
 from config import config
-from models import db, User, Game, UserGame, SteamAchievement, CustomAchievement, SharedAchievement, AchievementImage, ActivityFeed, EmailVerificationToken, PasswordResetToken, AchievementCollection, CollectionItem, UserCollectionProgress, UserFriendship, get_or_create_game, log_activity, get_recent_activities, get_user_friends, get_mutual_friends, are_friends, get_friendship_status
+from models import db, User, Game, UserGame, SteamAchievement, CustomAchievement, SharedAchievement, AchievementImage, ActivityFeed, EmailVerificationToken, PasswordResetToken, AchievementCollection, CollectionItem, UserCollectionProgress, UserFriendship, AchievementRating, AchievementReview, get_or_create_game, log_activity, get_recent_activities, get_user_friends, get_mutual_friends, are_friends, get_friendship_status
 from s3_manager import s3_manager
 from email_service import email_service
 
@@ -2689,6 +2689,71 @@ def remove_friend(user_id):
         return jsonify({
             'success': True,
             'message': f'Removed {user.username} from friends'
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ========================================
+# ACHIEVEMENT RATING ROUTES
+# ========================================
+
+@app.route('/achievements/<int:achievement_id>/rate', methods=['POST'])
+@login_required
+def rate_achievement(achievement_id):
+    """Submit or update a rating for a shared achievement"""
+    data = request.get_json()
+    rating_value = data.get('rating')
+    
+    # Validate rating
+    if not rating_value or not isinstance(rating_value, int) or rating_value < 1 or rating_value > 5:
+        return jsonify({'success': False, 'error': 'Invalid rating. Must be 1-5 stars.'}), 400
+    
+    # Verify achievement exists and is shared
+    achievement = SharedAchievement.query.get_or_404(achievement_id)
+    
+    try:
+        # Check if user already rated this achievement
+        existing_rating = AchievementRating.query.filter_by(
+            user_id=current_user.id,
+            shared_achievement_id=achievement_id
+        ).first()
+        
+        if existing_rating:
+            # Update existing rating
+            old_rating = existing_rating.rating
+            existing_rating.rating = rating_value
+            existing_rating.updated_at = datetime.utcnow()
+            message = f'Updated your rating from {old_rating} to {rating_value} stars'
+        else:
+            # Create new rating
+            new_rating = AchievementRating(
+                user_id=current_user.id,
+                shared_achievement_id=achievement_id,
+                rating=rating_value
+            )
+            db.session.add(new_rating)
+            message = f'Rated "{achievement.name}" {rating_value} stars'
+        
+        db.session.commit()
+        
+        # Calculate updated average rating
+        avg_rating = db.session.query(db.func.avg(AchievementRating.rating)).filter_by(
+            shared_achievement_id=achievement_id
+        ).scalar()
+        
+        rating_count = AchievementRating.query.filter_by(
+            shared_achievement_id=achievement_id
+        ).count()
+        
+        return jsonify({
+            'success': True,
+            'message': message,
+            'user_rating': rating_value,
+            'average_rating': round(float(avg_rating), 1) if avg_rating else 0,
+            'rating_count': rating_count
         })
         
     except Exception as e:
