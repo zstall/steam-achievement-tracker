@@ -908,8 +908,6 @@ class UserFriendship(db.Model):
                     user_id=self.friend_id,
                     friend_id=self.user_id,
                     status='accepted',
-                    initiated_by=self.initiated_by,
-                    requested_at=self.requested_at,
                     accepted_at=datetime.utcnow()
                 )
                 db.session.add(reciprocal)
@@ -938,10 +936,8 @@ class UserFriendship(db.Model):
             'user': self.user.username,
             'friend': self.friend.username,
             'status': self.status,
-            'initiated_by': self.initiator.username,
-            'requested_at': self.requested_at.isoformat(),
-            'accepted_at': self.accepted_at.isoformat() if self.accepted_at else None,
-            'request_message': self.request_message
+            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'accepted_at': self.accepted_at.isoformat() if self.accepted_at else None
         }
 
 # Friendship utility functions
