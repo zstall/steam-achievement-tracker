@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Steam Achievement Tracker - Your Gaming Journey Awaits</title>
+    <meta name="description" content="Transform your Steam gaming experience with custom achievements, social features, and community challenges. Built with cutting-edge AI technology.">
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom Styles -->
+    <style>
+        :root {
+            --primary-color: #66c0f4;
+            --secondary-color: #1e2328;
+            --accent-color: #c7d5e0;
+            --success-color: #5cb85c;
+            --warning-color: #f0ad4e;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #0f1419 0%, #1e2328 50%, #2a475e 100%);
+            color: var(--accent-color);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .hero-section {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .hero-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000"><defs><radialGradient id="grad" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="rgba(102,192,244,0.1)"/><stop offset="100%" stop-color="rgba(102,192,244,0.0)"/></radialGradient></defs><circle cx="200" cy="200" r="100" fill="url(%23grad)"/><circle cx="800" cy="300" r="150" fill="url(%23grad)"/><circle cx="300" cy="700" r="120" fill="url(%23grad)"/><circle cx="700" cy="800" r="80" fill="url(%23grad)"/></svg>') no-repeat center center;
+            background-size: cover;
+            z-index: -1;
+        }
+        
+        .hero-title {
+            font-size: 3.5rem;
+            font-weight: bold;
+            background: linear-gradient(45deg, var(--primary-color), var(--accent-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 1.5rem;
+        }
+        
+        .hero-subtitle {
+            font-size: 1.3rem;
+            margin-bottom: 2rem;
+            opacity: 0.9;
+        }
+        
+        .btn-hero {
+            padding: 12px 30px;
+            font-size: 1.1rem;
+            border-radius: 50px;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            margin: 0.5rem;
+        }
+        
+        .btn-hero-primary {
+            background: linear-gradient(45deg, var(--primary-color), #4fa8d8);
+            color: white;
+            border: none;
+        }
+        
+        .btn-hero-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(102, 192, 244, 0.3);
+            color: white;
+        }
+        
+        .btn-hero-secondary {
+            background: transparent;
+            color: var(--accent-color);
+            border: 2px solid var(--accent-color);
+        }
+        
+        .btn-hero-secondary:hover {
+            background: var(--accent-color);
+            color: var(--secondary-color);
+            transform: translateY(-2px);
+        }
+        
+        .section {
+            padding: 80px 0;
+        }
+        
+        .section-title {
+            font-size: 2.5rem;
+            text-align: center;
+            margin-bottom: 3rem;
+            color: var(--primary-color);
+        }
+        
+        .feature-card {
+            background: rgba(30, 35, 40, 0.8);
+            border: 1px solid rgba(102, 192, 244, 0.2);
+            border-radius: 15px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            transition: all 0.3s ease;
+            height: 100%;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary-color);
+            box-shadow: 0 10px 30px rgba(102, 192, 244, 0.2);
+        }
+        
+        .feature-icon {
+            font-size: 3rem;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+        }
+        
+        .tech-stack {
+            background: rgba(30, 35, 40, 0.6);
+            border-radius: 15px;
+            padding: 2rem;
+            margin: 1rem 0;
+        }
+        
+        .tech-item {
+            display: inline-block;
+            background: rgba(102, 192, 244, 0.1);
+            color: var(--primary-color);
+            padding: 0.5rem 1rem;
+            margin: 0.25rem;
+            border-radius: 25px;
+            border: 1px solid rgba(102, 192, 244, 0.3);
+        }
+        
+        .stats-section {
+            background: rgba(30, 35, 40, 0.8);
+            border-radius: 15px;
+            padding: 3rem;
+            margin: 2rem 0;
+        }
+        
+        .stat-number {
+            font-size: 3rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+        
+        .claude-section {
+            background: linear-gradient(135deg, rgba(102, 192, 244, 0.1), rgba(199, 213, 224, 0.1));
+            border-radius: 15px;
+            padding: 3rem;
+            margin: 2rem 0;
+            border: 1px solid rgba(102, 192, 244, 0.3);
+        }
+        
+        .workflow-step {
+            background: rgba(30, 35, 40, 0.8);
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        .workflow-number {
+            background: var(--primary-color);
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 1rem;
+        }
+        
+        @media (max-width: 768px) {
+            .hero-title {
+                font-size: 2.5rem;
+            }
+            .hero-subtitle {
+                font-size: 1.1rem;
+            }
+            .section-title {
+                font-size: 2rem;
+            }
+        }
+        
+        .animate-on-scroll {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.6s ease;
+        }
+        
+        .animate-on-scroll.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark fixed-top" style="background: rgba(30, 35, 40, 0.95); backdrop-filter: blur(10px);">
+        <div class="container">
+            <a class="navbar-brand" href="#home">
+                <i class="fas fa-trophy text-warning me-2"></i>
+                <strong>Steam Achievement Tracker</strong>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="#features">Features</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#how-it-works">How It Works</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#tech-stack">Technology</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#about">About</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link btn btn-outline-primary ms-2 px-3" href="{{ url_for('login') }}">Login</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link btn btn-primary ms-2 px-3" href="{{ url_for('register') }}">Sign Up</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section id="home" class="hero-section">
+        <div class="hero-bg"></div>
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-lg-6">
+                    <h1 class="hero-title animate-on-scroll">Steam Achievement Tracker</h1>
+                    <p class="hero-subtitle animate-on-scroll">Transform your Steam gaming experience with custom achievements, social features, and community challenges. Built with cutting-edge AI technology.</p>
+                    <div class="animate-on-scroll">
+                        <a href="{{ url_for('register') }}" class="btn-hero btn-hero-primary">
+                            <i class="fas fa-rocket me-2"></i>Get Started Free
+                        </a>
+                        <a href="#features" class="btn-hero btn-hero-secondary">
+                            <i class="fas fa-play me-2"></i>Learn More
+                        </a>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="text-center animate-on-scroll">
+                        <i class="fas fa-trophy" style="font-size: 15rem; color: var(--primary-color); opacity: 0.8;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="section">
+        <div class="container">
+            <h2 class="section-title animate-on-scroll">Powerful Features</h2>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="feature-card animate-on-scroll">
+                        <div class="text-center">
+                            <i class="fas fa-star feature-icon"></i>
+                            <h4>Custom Achievements</h4>
+                            <p>Create personalized gaming challenges beyond Steam's default achievements. Set your own goals and track progress across your entire game library.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="feature-card animate-on-scroll">
+                        <div class="text-center">
+                            <i class="fas fa-users feature-icon"></i>
+                            <h4>Social Features</h4>
+                            <p>Connect with friends, share achievements, and discover community challenges. Rate and review achievements created by other players.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="feature-card animate-on-scroll">
+                        <div class="text-center">
+                            <i class="fas fa-chart-line feature-icon"></i>
+                            <h4>Progress Tracking</h4>
+                            <p>Visualize your gaming journey with detailed analytics, completion rates, and milestone tracking across all your achievements.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="feature-card animate-on-scroll">
+                        <div class="text-center">
+                            <i class="fas fa-share-alt feature-icon"></i>
+                            <h4>Community Hub</h4>
+                            <p>Browse and import achievements created by the community. Discover new ways to enjoy your favorite games with fresh challenges.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="feature-card animate-on-scroll">
+                        <div class="text-center">
+                            <i class="fas fa-collection feature-icon"></i>
+                            <h4>Achievement Collections</h4>
+                            <p>Organize achievements into themed collections and campaigns. Create gaming journeys that span multiple games and genres.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="feature-card animate-on-scroll">
+                        <div class="text-center">
+                            <i class="fas fa-feed feature-icon"></i>
+                            <h4>Activity Feed</h4>
+                            <p>Stay connected with community activities, friend achievements, and trending challenges in real-time social feeds.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works Section -->
+    <section id="how-it-works" class="section">
+        <div class="container">
+            <h2 class="section-title animate-on-scroll">How It Works</h2>
+            <div class="row">
+                <div class="col-lg-8 mx-auto">
+                    <div class="workflow-step animate-on-scroll">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="workflow-number">1</div>
+                            <h4>Connect Your Steam Account</h4>
+                        </div>
+                        <p>Securely link your Steam account using Steam's official Web API. We fetch your game library, achievements, and playtime data to provide personalized experiences.</p>
+                    </div>
+                    
+                    <div class="workflow-step animate-on-scroll">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="workflow-number">2</div>
+                            <h4>Create Custom Achievements</h4>
+                        </div>
+                        <p>Design achievements tailored to your gaming style. Set completion conditions, choose game collections, and add custom images to make them uniquely yours.</p>
+                    </div>
+                    
+                    <div class="workflow-step animate-on-scroll">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="workflow-number">3</div>
+                            <h4>Track & Share Progress</h4>
+                        </div>
+                        <p>Monitor your progress in real-time as our system automatically tracks your Steam data. Share achievements with the community and discover new challenges.</p>
+                    </div>
+                    
+                    <div class="workflow-step animate-on-scroll">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="workflow-number">4</div>
+                            <h4>Connect & Compete</h4>
+                        </div>
+                        <p>Build your gaming network, follow friends' achievements, and participate in community challenges to enhance your gaming experience.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Technology Stack Section -->
+    <section id="tech-stack" class="section">
+        <div class="container">
+            <h2 class="section-title animate-on-scroll">Built With Modern Technology</h2>
+            <div class="row">
+                <div class="col-lg-6">
+                    <div class="tech-stack animate-on-scroll">
+                        <h4><i class="fas fa-server me-2"></i>Backend Technologies</h4>
+                        <div class="mt-3">
+                            <span class="tech-item"><i class="fab fa-python me-1"></i>Python 3.11</span>
+                            <span class="tech-item"><i class="fas fa-flask me-1"></i>Flask Framework</span>
+                            <span class="tech-item"><i class="fas fa-database me-1"></i>PostgreSQL</span>
+                            <span class="tech-item"><i class="fas fa-table me-1"></i>SQLAlchemy ORM</span>
+                            <span class="tech-item"><i class="fas fa-lock me-1"></i>Flask-Login</span>
+                            <span class="tech-item"><i class="fas fa-envelope me-1"></i>Email Service</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="tech-stack animate-on-scroll">
+                        <h4><i class="fas fa-palette me-2"></i>Frontend Technologies</h4>
+                        <div class="mt-3">
+                            <span class="tech-item"><i class="fab fa-bootstrap me-1"></i>Bootstrap 5</span>
+                            <span class="tech-item"><i class="fab fa-js me-1"></i>JavaScript ES6+</span>
+                            <span class="tech-item"><i class="fab fa-html5 me-1"></i>HTML5</span>
+                            <span class="tech-item"><i class="fab fa-css3-alt me-1"></i>CSS3</span>
+                            <span class="tech-item"><i class="fas fa-icons me-1"></i>Font Awesome</span>
+                            <span class="tech-item"><i class="fas fa-mobile-alt me-1"></i>Responsive Design</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="tech-stack animate-on-scroll">
+                        <h4><i class="fas fa-cloud me-2"></i>Infrastructure & APIs</h4>
+                        <div class="mt-3">
+                            <span class="tech-item"><i class="fas fa-train me-1"></i>Railway Hosting</span>
+                            <span class="tech-item"><i class="fab fa-aws me-1"></i>AWS S3</span>
+                            <span class="tech-item"><i class="fab fa-steam me-1"></i>Steam Web API</span>
+                            <span class="tech-item"><i class="fas fa-shield-alt me-1"></i>Security Headers</span>
+                            <span class="tech-item"><i class="fas fa-tachometer-alt me-1"></i>Performance Optimized</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="tech-stack animate-on-scroll">
+                        <h4><i class="fas fa-tools me-2"></i>Development Tools</h4>
+                        <div class="mt-3">
+                            <span class="tech-item"><i class="fab fa-git-alt me-1"></i>Git Version Control</span>
+                            <span class="tech-item"><i class="fab fa-github me-1"></i>GitHub</span>
+                            <span class="tech-item"><i class="fas fa-bug me-1"></i>Error Handling</span>
+                            <span class="tech-item"><i class="fas fa-chart-bar me-1"></i>Analytics</span>
+                            <span class="tech-item"><i class="fas fa-mobile me-1"></i>Mobile-First</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Claude AI Section -->
+    <section id="about" class="section">
+        <div class="container">
+            <h2 class="section-title animate-on-scroll">Built with Claude AI</h2>
+            <div class="claude-section animate-on-scroll">
+                <div class="row align-items-center">
+                    <div class="col-lg-6">
+                        <h3><i class="fas fa-robot me-2"></i>AI-Powered Development</h3>
+                        <p class="lead">This entire application was built in partnership with Claude AI, Anthropic's advanced language model, showcasing the future of AI-assisted software development.</p>
+                        <ul class="list-unstyled mt-4">
+                            <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Full-stack architecture designed by AI</li>
+                            <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Database schema and relationships optimized</li>
+                            <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Security best practices implemented</li>
+                            <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Responsive UI/UX crafted with modern standards</li>
+                            <li class="mb-2"><i class="fas fa-check text-success me-2"></i>Performance optimization and error handling</li>
+                        </ul>
+                    </div>
+                    <div class="col-lg-6 text-center">
+                        <div class="p-4">
+                            <i class="fas fa-brain" style="font-size: 8rem; color: var(--primary-color); opacity: 0.7;"></i>
+                            <p class="mt-3 text-muted">Powered by Claude AI from Anthropic</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats Section -->
+    <section class="section">
+        <div class="container">
+            <div class="stats-section animate-on-scroll">
+                <div class="row text-center">
+                    <div class="col-md-3">
+                        <div class="stat-number">100%</div>
+                        <p>AI-Generated Code</p>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-number">24/7</div>
+                        <p>Steam API Integration</p>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-number">∞</div>
+                        <p>Custom Achievements</p>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-number">🚀</div>
+                        <p>Performance Optimized</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="section">
+        <div class="container text-center">
+            <div class="animate-on-scroll">
+                <h2 class="section-title">Ready to Transform Your Gaming?</h2>
+                <p class="lead mb-4">Join the community and start creating custom achievements today.</p>
+                <a href="{{ url_for('register') }}" class="btn-hero btn-hero-primary btn-lg">
+                    <i class="fas fa-user-plus me-2"></i>Create Account
+                </a>
+                <a href="{{ url_for('login') }}" class="btn-hero btn-hero-secondary btn-lg">
+                    <i class="fas fa-sign-in-alt me-2"></i>Sign In
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer style="background: rgba(30, 35, 40, 0.9); padding: 3rem 0;">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5><i class="fas fa-trophy text-warning me-2"></i>Steam Achievement Tracker</h5>
+                    <p>Enhancing your gaming experience with AI-powered achievement tracking and social features.</p>
+                </div>
+                <div class="col-md-6 text-end">
+                    <p class="mb-0">Built with ❤️ using Claude AI</p>
+                    <p class="text-muted">© 2025 ZStall. All rights reserved.</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Smooth Scroll Animation -->
+    <script>
+        // Smooth scrolling for navigation links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Animate elements on scroll
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.animate-on-scroll').forEach(el => {
+            observer.observe(el);
+        });
+
+        // Update active navigation
+        window.addEventListener('scroll', () => {
+            const sections = document.querySelectorAll('section[id]');
+            const navLinks = document.querySelectorAll('.navbar-nav .nav-link');
+            
+            let current = '';
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                const sectionHeight = section.clientHeight;
+                if (window.pageYOffset >= sectionTop - 60) {
+                    current = section.getAttribute('id');
+                }
+            });
+
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href') === `#${current}`) {
+                    link.classList.add('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

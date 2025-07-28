@@ -742,9 +742,24 @@ def profile():
     return render_template('profile.html', form=form)
 
 @app.route('/')
-@login_required
 def index():
-    """Main page showing game library"""
+    """Landing page for new users, dashboard for logged-in users"""
+    # Show landing page for non-authenticated users
+    if not current_user.is_authenticated:
+        return render_template('landing.html')
+    
+    # Show dashboard for logged-in users
+    return redirect(url_for('dashboard'))
+
+@app.route('/landing')
+def landing():
+    """Dedicated landing page route"""
+    return render_template('landing.html')
+
+@app.route('/dashboard')
+@login_required 
+def dashboard():
+    """Main dashboard showing game library"""
     # Load user's games from database
     user_games = UserGame.query.filter_by(user_id=current_user.id).join(Game).all()
     

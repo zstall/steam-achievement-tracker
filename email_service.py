@@ -26,7 +26,7 @@ class EmailService:
         print(f"🔍 Debug - App config SENDGRID_API_KEY: {app.config.get('SENDGRID_API_KEY')}")
         
         api_key = app.config.get('SENDGRID_API_KEY')
-        self.from_email = app.config.get('SENDGRID_FROM_EMAIL', 'noreply@em8032.zstall.com')
+        self.from_email = app.config.get('SENDGRID_FROM_EMAIL', 'noreply@steam-achievement-tracker.zstall.com')
         self.from_name = app.config.get('SENDGRID_FROM_NAME', 'Steam Achievement Tracker')
         
         if api_key:
