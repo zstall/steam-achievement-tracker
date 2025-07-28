@@ -278,6 +278,21 @@
                     <small class="text-muted">You own {{ "%.0f"|format(achievement.compatibility) }}% of required games</small>
                 </div>
 
+                <!-- Community Rating Section -->
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <strong>Community Rating:</strong>
+                        </div>
+                        <div>
+                            {% set achievement_id = achievement.shared_id %}
+                            {% set current_rating = 0 %}
+                            {% set readonly = false %}
+                            {% include 'components/star_rating.html' %}
+                        </div>
+                    </div>
+                </div>
+
                 <div class="mb-2">
                     <strong>Condition:</strong>
                     {% if achievement.condition_type == 'all_games_100' %}
