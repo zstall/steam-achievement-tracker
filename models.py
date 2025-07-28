@@ -390,6 +390,7 @@ class ActivityFeed(db.Model):
             'custom_achievement_created': '🎯 Created Achievement',
             'custom_achievement_shared': '🌟 Shared Achievement',
             'community_achievement_imported': '📥 Imported Achievement',
+            'achievement_rating': '⭐ Rated Achievement',
             'milestone_reached': '⭐ Milestone Reached',
             'game_started': '🎮 Started Playing',
             'streak_achieved': '🔥 Streak Milestone',
@@ -442,7 +443,7 @@ def log_activity(user_id, activity_type, title, description=None, **kwargs):
     # Note: Caller should commit the transaction
     return activity
 
-def get_recent_activities(limit=50, user_id=None, activity_type=None, include_private=False):
+def get_recent_activities(limit=50, user_id=None, user_ids=None, activity_type=None, include_private=False):
     """Get recent community activities with filtering"""
     query = ActivityFeed.query
     
@@ -453,6 +454,8 @@ def get_recent_activities(limit=50, user_id=None, activity_type=None, include_pr
     # User filter
     if user_id:
         query = query.filter(ActivityFeed.user_id == user_id)
+    elif user_ids:
+        query = query.filter(ActivityFeed.user_id.in_(user_ids))
     
     # Activity type filter
     if activity_type:

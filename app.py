@@ -1362,12 +1362,30 @@ def trophy_feed():
         query_params['activity_type'] = activity_filter
     
     if user_filter and user_filter != 'all':
-        user = User.query.filter_by(username=user_filter).first()
-        if user:
-            query_params['user_id'] = user.id
+        if user_filter == 'friends_only':
+            # Get user's friends and limit activities to friends only
+            friends = db.session.query(User).join(
+                UserFriendship, 
+                db.or_(
+                    db.and_(UserFriendship.user_id == current_user.id, UserFriendship.friend_id == User.id),
+                    db.and_(UserFriendship.friend_id == current_user.id, UserFriendship.user_id == User.id)
+                )
+            ).filter(UserFriendship.status == 'accepted').all()
+            
+            friend_ids = [friend.id for friend in friends]
+            if friend_ids:
+                query_params['user_ids'] = friend_ids
+            else:
+                # No friends, return empty activities
+                activities = []
+        else:
+            user = User.query.filter_by(username=user_filter).first()
+            if user:
+                query_params['user_id'] = user.id
     
     # Get activities
-    activities = get_recent_activities(**query_params)
+    if 'activities' not in locals():
+        activities = get_recent_activities(**query_params)
     
     # Get unique users for filter dropdown
     recent_users = db.session.query(User).join(ActivityFeed).filter(
@@ -1380,6 +1398,7 @@ def trophy_feed():
         ('custom_achievement_shared', '🌟 Shared Achievements'),
         ('community_achievement_imported', '📥 Imported Achievements'),
         ('custom_achievement_created', '🎯 Created Achievements'),
+        ('achievement_rating', '⭐ Achievement Ratings'),
         ('game_completed', '🎉 Game Completions'),
         ('milestone_reached', '⭐ Milestones')
     ]
@@ -2827,6 +2846,22 @@ def rate_achievement(achievement_id):
             message = f'Rated "{achievement.name}" {rating_value} stars'
         
         db.session.commit()
+        
+        # Add activity feed entry for high ratings (4-5 stars) on new ratings
+        if not existing_rating and rating_value >= 4:
+            log_activity(
+                user_id=current_user.id,
+                activity_type='achievement_rating',
+                title=f'Rated "{achievement.name}" {rating_value} stars',
+                description=f'Gave a {rating_value}-star rating to this community achievement',
+                shared_achievement_id=achievement_id,
+                activity_metadata={
+                    'rating': rating_value,
+                    'achievement_creator': achievement.creator.username
+                },
+                is_public=True
+            )
+            db.session.commit()
         
         # Calculate updated average rating
         avg_rating = db.session.query(db.func.avg(AchievementRating.rating)).filter_by(

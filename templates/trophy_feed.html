@@ -28,6 +28,9 @@
             <option value="all" {% if current_user_filter == 'all' or not current_user_filter %}selected{% endif %}>
                 👥 All Users
             </option>
+            <option value="friends_only" {% if current_user_filter == 'friends_only' %}selected{% endif %}>
+                👨‍👩‍👧‍👦 Friends Only
+            </option>
             {% for user in recent_users %}
             <option value="{{ user.username }}" {% if user.username == current_user_filter %}selected{% endif %}>
                 {{ user.username }}
@@ -120,6 +123,16 @@
                             {% if activity.activity_metadata.get('original_creator') %}
                             <small class="text-muted ms-3">
                                 <i class="fas fa-user-crown"></i> Created by @{{ activity.activity_metadata.original_creator }}
+                            </small>
+                            {% endif %}
+                            {% if activity.activity_metadata.get('rating') %}
+                            <small class="text-muted ms-3">
+                                <i class="fas fa-star text-warning"></i> {{ activity.activity_metadata.rating }} star{{ 's' if activity.activity_metadata.rating != 1 else '' }}
+                            </small>
+                            {% endif %}
+                            {% if activity.activity_metadata.get('achievement_creator') %}
+                            <small class="text-muted ms-3">
+                                <i class="fas fa-user"></i> Achievement by @{{ activity.activity_metadata.achievement_creator }}
                             </small>
                             {% endif %}
                         </div>
