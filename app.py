@@ -1191,6 +1191,31 @@ def community_achievements():
         # Check if already imported
         already_imported = shared_ach.id in imported_shared_ids
         
+        # Get rating information
+        try:
+            # Get user's rating if exists
+            user_rating = None
+            user_rating_obj = AchievementRating.query.filter_by(
+                user_id=current_user.id,
+                shared_achievement_id=shared_ach.id
+            ).first()
+            if user_rating_obj:
+                user_rating = user_rating_obj.rating
+            
+            # Get average rating and count
+            avg_rating = db.session.query(db.func.avg(AchievementRating.rating)).filter_by(
+                shared_achievement_id=shared_ach.id
+            ).scalar()
+            
+            rating_count = AchievementRating.query.filter_by(
+                shared_achievement_id=shared_ach.id
+            ).count()
+        except Exception:
+            # Fallback if rating queries fail
+            user_rating = None
+            avg_rating = None
+            rating_count = 0
+        
         community_list.append({
             'shared_id': shared_ach.id,
             'name': shared_ach.name,
@@ -1204,7 +1229,10 @@ def community_achievements():
             'image_filename': shared_ach.image_filename,
             'shared_date': shared_ach.shared_at.isoformat() if shared_ach.shared_at else '',
             'playtime_target': shared_ach.condition_data.get('playtime_target', 0),
-            'already_imported': already_imported
+            'already_imported': already_imported,
+            'user_rating': user_rating,
+            'average_rating': round(float(avg_rating), 1) if avg_rating else 0,
+            'rating_count': rating_count
         })
     
     # Sort by popularity (tries + completions) and compatibility

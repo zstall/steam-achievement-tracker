@@ -286,11 +286,19 @@
                         </div>
                         <div>
                             {% set achievement_id = achievement.shared_id %}
-                            {% set current_rating = 0 %}
+                            {% set current_rating = achievement.user_rating or 0 %}
                             {% set readonly = false %}
                             {% include 'components/star_rating.html' %}
                         </div>
                     </div>
+                    {% if achievement.rating_count > 0 %}
+                    <div class="text-center mt-2">
+                        <small class="text-muted">
+                            Average: {{ "%.1f"|format(achievement.average_rating) }} stars 
+                            ({{ achievement.rating_count }} rating{{ 's' if achievement.rating_count != 1 else '' }})
+                        </small>
+                    </div>
+                    {% endif %}
                 </div>
 
                 <div class="mb-2">
