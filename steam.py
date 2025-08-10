@@ -1,10 +1,11 @@
 import requests
 import csv
 import time
+import os
 from datetime import datetime
 
 # 🔧 Configuration
-STEAM_API_KEY = '549094D7625ABA943DA0EC5CA4BA5D88'
+STEAM_API_KEY = os.environ.get('STEAM_API_KEY')
 STEAM_ID = '76561198084603204'
 OUTPUT_FILE = 'steam_library_with_achievements.csv'
 

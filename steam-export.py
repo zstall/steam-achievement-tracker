@@ -1,8 +1,9 @@
 import requests
 import csv
+import os
 
 # Replace with your Steam API key and SteamID64
-STEAM_API_KEY = '549094D7625ABA943DA0EC5CA4BA5D88'
+STEAM_API_KEY = os.environ.get('STEAM_API_KEY')
 STEAM_ID = '76561198084603204'
 
 # API endpoint to get owned games
