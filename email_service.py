@@ -19,12 +19,7 @@ class EmailService:
         self.from_name = None
         
     def init_app(self, app):
-        """Initialize email service with Flask app config"""
-        # Debug environment variables
-        import os
-        print(f"🔍 Debug - Raw env SENDGRID_API_KEY: {os.environ.get('SENDGRID_API_KEY')}")
-        print(f"🔍 Debug - App config SENDGRID_API_KEY: {app.config.get('SENDGRID_API_KEY')}")
-        
+        """Initialize email service with Flask app config"""        
         api_key = app.config.get('SENDGRID_API_KEY')
         self.from_email = app.config.get('SENDGRID_FROM_EMAIL', 'noreply@steam-achievement-tracker.zstall.com')
         self.from_name = app.config.get('SENDGRID_FROM_NAME', 'Steam Achievement Tracker')
